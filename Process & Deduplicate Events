@@ -1,0 +1,1200 @@
+// معالج Kommo Webhooks - النسخة الشاملة المحدثة
+// ================================================
+// Version: 10.0 - الحل الشامل لاستخراج النصوص ودمج البيانات
+// التحديث: إضافة جميع مسارات البحث الممكنة مع تحسين آلية التجميع
+
+const CONFIG = {
+  TIME_WINDOW: 5,            // نافذة زمنية 5 ثواني للرسالة الواحدة
+  MESSAGE_CACHE_TTL: 120000, // مدة الاحتفاظ بالكاش
+  MAX_EVENTS_PER_MESSAGE: 10,
+  MAX_CACHE_SIZE: 5000,
+  DEBUG_MODE: true
+};
+
+const PIPELINE_CONFIG = {
+  '10794139': {
+    name: 'Sales Pipeline',
+    service: 'sales',
+    initial_stage: '82771955',
+    initial_stage_name: 'Initial',
+    ai_stages: ['10794142', '10794143'],
+    bot_stages: ['10794140', '10794141'],
+    critical_stages: ['10794144']
+  },
+  '10794150': {
+    name: 'Support Pipeline',
+    service: 'support',
+    ai_stages: ['10794152', '10794153'],
+    bot_stages: ['10794151'],
+    critical_stages: ['10794154']
+  },
+  '10794160': {
+    name: 'Onboarding Pipeline',
+    service: 'onboarding',
+    ai_stages: ['10794162'],
+    bot_stages: ['10794161', '10794163'],
+    critical_stages: []
+  }
+};
+
+const TAG_RULES = {
+  ai_required: ['vip', 'urgent', 'complex', 'ai-assist', 'premium', 'enterprise', 'priority'],
+  bot_only: ['simple', 'faq', 'auto-reply', 'bot-handled', 'no-ai', 'standard', 'routine'],
+  human_required: ['complaint', 'escalation', 'legal', 'refund', 'critical', 'emergency', 'manual'],
+  language: {
+    'ar': 'arabic',
+    'en': 'english',
+    'es': 'spanish',
+    'fr': 'french'
+  }
+};
+
+// تهيئة الذاكرة المؤقتة مع فحص الأمان
+const staticData = $getWorkflowStaticData('global');
+
+// التأكد من وجود جميع الخصائص المطلوبة
+if (!staticData.messageCache) {
+  staticData.messageCache = {};
+}
+if (!staticData.processedGroups) {
+  staticData.processedGroups = {};
+}
+if (!staticData.lastCleanup) {
+  staticData.lastCleanup = Date.now();
+}
+if (!staticData.cacheSize) {
+  staticData.cacheSize = 0;
+}
+
+function debugLog(...args) {
+  if (CONFIG.DEBUG_MODE) {
+    console.log(...args);
+  }
+}
+
+// ==================
+// دالة محسنة جداً لاستخراج النص - النسخة الشاملة
+// ==================
+function extractMessageText(body, eventType) {
+  let text = '';
+  
+  debugLog("Extracting text for event type:", eventType);
+  debugLog("Body keys available:", Object.keys(body).slice(0, 30));
+  
+  // قائمة شاملة جداً بجميع المسارات المحتملة للنص
+  const allTextPaths = [
+    // === مسارات talk[update] الجديدة ===
+    'talk[update][0][last_message_text]',
+    'talk[update][0][messages][0][text]',
+    'talk[update][0][messages][last][text]',
+    'talk[update][0][last_message][text]',
+    'talk[update][0][last_message][content]',
+    'talk[update][0][talk][last_message]',
+    'talk[update][0][talk][messages][0][text]',
+    'talk[update][0][conversation][last_message]',
+    'talk[update][0][chat][messages][0][text]',
+    'talk[update][0][updates][message][text]',
+    'talk[update][0][data][text]',
+    'talk[update][0][data][message]',
+    'talk[update][0][text]',
+    'talk[update][0][message]',
+    'talk[update][0][body]',
+    'talk[update][0][content]',
+    
+    // === مسارات talk[add] ===
+    'talk[add][0][last_message]',
+    'talk[add][0][text]',
+    'talk[add][0][message]',
+    'talk[add][0][body]',
+    'talk[add][0][content]',
+    'talk[add][0][messages][0][text]',
+    
+    // === مسارات message[add] ===
+    'message[add][0][text]',
+    'message[add][0][message]',
+    'message[add][0][body]',
+    'message[add][0][content]',
+    'message[add][0][text][body]',
+    'message[add][0][msg]',
+    'message[add][0][data]',
+    
+    // === مسارات unsorted ===
+    'unsorted[add][0][source_data][data][0][text]',
+    'unsorted[add][0][source_data][data][0][message]',
+    'unsorted[add][0][source_data][data][0][body]',
+    'unsorted[add][0][source_data][data][0][content]',
+    'unsorted[add][0][source_data][text]',
+    'unsorted[add][0][source_data][message]',
+    'unsorted[add][0][source_data][body]',
+    'unsorted[add][0][text]',
+    'unsorted[add][0][message]',
+    'unsorted[add][0][body]',
+    'unsorted[add][0][content]',
+    
+    // === مسارات leads[update] الجديدة ===
+    'leads[update][0][text]',
+    'leads[update][0][last_message]',
+    'leads[update][0][last_message_text]',
+    'leads[update][0][note]',
+    'leads[update][0][message]',
+    'leads[update][0][notes][0][text]',
+    'leads[update][0][notes][0][note_text]',
+    'leads[update][0][notes][0][params][text]',
+    'leads[update][0][notes][last][text]',
+    'leads[update][0][notes][last][params][text]',
+    'leads[update][0][custom_fields][0][values][0][value]',
+    'leads[update][0][custom_fields_values][0][values][0][value]',
+    'leads[update][0][updates][message]',
+    'leads[update][0][updates][text]',
+    'leads[update][0][chat][last_message]',
+    
+    // === مسارات contacts ===
+    'contacts[update][0][last_message]',
+    'contacts[update][0][note]',
+    'contacts[add][0][note]',
+    
+    // === مسارات إضافية للأحداث المتداخلة ===
+    'talk[update][0][_embedded][messages][0][text]',
+    'talk[update][0][_embedded][last_message]',
+    'leads[update][0][_embedded][notes][0][text]',
+    'leads[update][0][_embedded][messages][0][text]',
+    
+    // === مسارات للبيانات المتداخلة عميقاً ===
+    'talk[update][0][updates][0][message]',
+    'talk[update][0][updates][0][text]',
+    'leads[update][0][updates][0][message]',
+    'leads[update][0][updates][0][text]'
+  ];
+  
+  // محاولة استخراج النص من جميع المسارات
+  for (const path of allTextPaths) {
+    const value = body[path];
+    if (value && typeof value === 'string' && value.trim() !== '') {
+      // تجاهل القيم غير الصالحة
+      if (!value.includes('infodvnlog') && !value.includes('.com') && 
+          !value.includes('http') && !value.includes('amocrm') &&
+          value.length > 1 && !(/^[\d\s]+$/.test(value))) {
+        text = value.trim();
+        debugLog(`✓ Found text at path: ${path} = "${text.substring(0, 50)}..."`);
+        break;
+      }
+    }
+  }
+  
+  // البحث في الحقول المخصصة بشكل موسع
+  if (!text) {
+    debugLog("Searching in custom fields...");
+    // البحث في custom fields لـ leads
+    for (let i = 0; i < 30; i++) {
+      for (let j = 0; j < 10; j++) {
+        const paths = [
+          `leads[update][0][custom_fields_values][${i}][values][${j}][value]`,
+          `leads[update][0][custom_fields][${i}][values][${j}][value]`,
+          `leads[add][0][custom_fields_values][${i}][values][${j}][value]`
+        ];
+        
+        for (const customFieldPath of paths) {
+          if (body[customFieldPath]) {
+            const value = body[customFieldPath];
+            if (typeof value === 'string' && value.length > 2 && 
+                !(/^[\d\s]+$/.test(value)) && !value.includes('http')) {
+              text = value.trim();
+              debugLog(`✓ Found text in custom field: ${customFieldPath}`);
+              break;
+            }
+          }
+        }
+        if (text) break;
+      }
+      if (text) break;
+    }
+  }
+  
+  // البحث في notes arrays بشكل موسع
+  if (!text) {
+    debugLog("Searching in notes arrays...");
+    for (let i = 0; i < 20; i++) {
+      const notePaths = [
+        `leads[update][0][notes][${i}][text]`,
+        `leads[update][0][notes][${i}][note_text]`,
+        `leads[update][0][notes][${i}][params][text]`,
+        `talk[update][0][notes][${i}][text]`,
+        `talk[update][0][messages][${i}][text]`,
+        `talk[update][0][messages][${i}][content]`
+      ];
+      
+      for (const notePath of notePaths) {
+        if (body[notePath]) {
+          const value = body[notePath];
+          if (typeof value === 'string' && value.trim() !== '') {
+            text = value.trim();
+            debugLog(`✓ Found text in notes: ${notePath}`);
+            break;
+          }
+        }
+      }
+      if (text) break;
+    }
+  }
+  
+  // البحث في أي مفتاح يحتوي على كلمات مفتاحية
+  if (!text) {
+    debugLog("Searching in dynamic keys...");
+    Object.keys(body).forEach(key => {
+      if (!text && (
+          key.includes('[text]') || key.includes('[message]') || 
+          key.includes('[body]') || key.includes('[content]') ||
+          key.includes('[msg]') || key.includes('[note]') ||
+          key.includes('[last_message]') || key.includes('[last_message_text]')
+      )) {
+        const value = body[key];
+        if (value && typeof value === 'string' && value.trim() !== '') {
+          if (!value.includes('infodvnlog') && !value.includes('.com') &&
+              !value.includes('http') && value.length > 1) {
+            text = value.trim();
+            debugLog(`✓ Found text in dynamic key: ${key}`);
+          }
+        }
+      }
+    });
+  }
+  
+  // البحث العميق في البيانات المتداخلة
+  if (!text) {
+    debugLog("Deep searching in nested data...");
+    const searchNested = (obj, depth = 0, path = '') => {
+      if (depth > 7 || !obj || typeof obj !== 'object') return '';
+      
+      for (const [key, value] of Object.entries(obj)) {
+        const currentPath = path ? `${path}.${key}` : key;
+        
+        // قائمة موسعة من المفاتيح المحتملة
+        const textKeys = [
+          'text', 'message', 'body', 'content', 'msg', 'note',
+          'last_message', 'last_message_text', 'value', 'comment',
+          'description', 'reply', 'response', 'answer', 'question',
+          'user_message', 'client_message', 'customer_message'
+        ];
+        
+        if (textKeys.includes(key.toLowerCase()) &&
+            typeof value === 'string' && value.trim() !== '') {
+          if (!value.includes('infodvnlog') && !value.includes('.com') &&
+              !value.includes('http') && value.length > 1) {
+            debugLog(`✓ Found text in nested path: ${currentPath}`);
+            return value.trim();
+          }
+        }
+        
+        if (typeof value === 'object') {
+          const nested = searchNested(value, depth + 1, currentPath);
+          if (nested) return nested;
+        }
+      }
+      return '';
+    };
+    
+    text = searchNested(body);
+  }
+  
+  // محاولة أخيرة: البحث في JSON المتسلسل
+  if (!text) {
+    debugLog("Last attempt: searching in serialized JSON...");
+    try {
+      const bodyStr = JSON.stringify(body);
+      // البحث عن أنماط نصية محتملة
+      const patterns = [
+        /"text"\s*:\s*"([^"]+)"/,
+        /"message"\s*:\s*"([^"]+)"/,
+        /"last_message"\s*:\s*"([^"]+)"/,
+        /"last_message_text"\s*:\s*"([^"]+)"/,
+        /"content"\s*:\s*"([^"]+)"/,
+        /"body"\s*:\s*"([^"]+)"/
+      ];
+      
+      for (const pattern of patterns) {
+        const match = bodyStr.match(pattern);
+        if (match && match[1]) {
+          const extracted = match[1];
+          if (extracted.length > 2 && !extracted.includes('http') &&
+              !extracted.includes('infodvnlog')) {
+            text = extracted;
+            debugLog(`✓ Found text via pattern matching: "${text.substring(0, 50)}..."`);
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      debugLog("Error in JSON serialization:", e);
+    }
+  }
+  
+  if (!text) {
+    debugLog("⚠️ WARNING: No text found in any path!");
+    debugLog("Event type:", eventType);
+    debugLog("Body structure sample:", JSON.stringify(body).substring(0, 2000));
+  } else {
+    debugLog(`✅ Successfully extracted text: "${text.substring(0, 100)}..."`);
+  }
+  
+  return text;
+}
+
+function extractFlatValue(obj, ...keys) {
+  for (const key of keys) {
+    const value = obj[key];
+    if (value !== undefined && value !== null && value !== '') {
+      if (typeof value === 'string' && value.trim() !== '') {
+        if (!value.includes('infodvnlog') && !value.includes('.com')) {
+          return value.trim();
+        }
+      } else if (value) {
+        return value;
+      }
+    }
+  }
+  return '';
+}
+
+// دالة لاكتشاف المنصة
+function detectPlatform(source, body) {
+  const s = (source || '').toLowerCase();
+  if (s.includes('waba') || s.includes('whatsapp')) return 'whatsapp';
+  if (s.includes('instagram') || s.includes('ig')) return 'instagram';
+  if (s.includes('facebook') || s.includes('fb')) return 'facebook';
+  if (s.includes('telegram') || s.includes('tg')) return 'telegram';
+  return 'unknown';
+}
+
+// دالة توليد البصمة الذكية المحسنة
+function generateFingerprint(data) {
+  const { entity_id, conversation_id, lead_id, chat_id, platform, created_at } = data;
+  
+  // استخدام timestamp الفعلي
+  const eventTime = created_at ? Number(created_at) : Date.now() / 1000;
+  const timeWindow = Math.floor(eventTime / CONFIG.TIME_WINDOW);
+  
+  // بصمة متعددة المستويات مع أولوية للمعرفات
+  if (lead_id) {
+    return `${platform}_lead_${lead_id}_${timeWindow}`;
+  } else if (entity_id && conversation_id) {
+    return `${platform}_${entity_id}_${conversation_id}_${timeWindow}`;
+  } else if (chat_id) {
+    return `${platform}_chat_${chat_id}_${timeWindow}`;
+  } else if (entity_id) {
+    return `${platform}_${entity_id}_${timeWindow}`;
+  } else if (conversation_id) {
+    return `${platform}_${conversation_id}_${timeWindow}`;
+  }
+  
+  return `${platform}_unknown_${timeWindow}`;
+}
+
+// استخراج Tags محسن
+function extractTags(body) {
+  const tags = [];
+  const tagPaths = [
+    'leads[update][0][tags]',
+    'leads[add][0][tags]',
+    'unsorted[add][0][tags]',
+    'contacts[update][0][tags]',
+    'leads[update][0][_embedded][tags]',
+    'talk[update][0][tags]',
+    'talk[add][0][tags]'
+  ];
+  
+  for (const path of tagPaths) {
+    const value = body[path];
+    if (value) {
+      if (typeof value === 'string') {
+        tags.push(...value.split(',').map(t => t.trim().toLowerCase()));
+      } else if (Array.isArray(value)) {
+        value.forEach(tag => {
+          if (typeof tag === 'string') {
+            tags.push(tag.toLowerCase());
+          } else if (tag.name) {
+            tags.push(tag.name.toLowerCase());
+          }
+        });
+      }
+    }
+  }
+  
+  // البحث في tags arrays
+  for (let i = 0; i < 10; i++) {
+    const tagPath = `leads[update][0][tags][${i}]`;
+    if (body[tagPath]) {
+      if (typeof body[tagPath] === 'string') {
+        tags.push(body[tagPath].toLowerCase());
+      } else if (body[tagPath].name) {
+        tags.push(body[tagPath].name.toLowerCase());
+      }
+    }
+  }
+  
+  Object.keys(body).forEach(key => {
+    if (key.includes('[tags][') || key.includes('[tag][')) {
+      const value = body[key];
+      if (value && typeof value === 'string') {
+        tags.push(value.toLowerCase());
+      }
+    }
+  });
+  
+  return [...new Set(tags)];
+}
+
+// استخراج معلومات Pipeline/Stage محسن
+function extractPipelineStageInfo(body) {
+  const info = {
+    pipeline_id: '',
+    pipeline_name: '',
+    stage_id: '',
+    stage_name: '',
+    previous_stage_id: '',
+    stage_changed: false
+  };
+  
+  // استخراج Pipeline ID من مسارات متعددة
+  info.pipeline_id = extractFlatValue(body,
+    'leads[update][0][pipeline_id]',
+    'leads[add][0][pipeline_id]',
+    'unsorted[add][0][pipeline_id]',
+    'leads[status][0][pipeline_id]',
+    'talk[update][0][pipeline_id]',
+    'leads[update][0][_embedded][pipeline_id]'
+  );
+  
+  // استخراج Stage ID من مسارات متعددة
+  info.stage_id = extractFlatValue(body,
+    'leads[update][0][status_id]',
+    'leads[add][0][status_id]',
+    'unsorted[add][0][status_id]',
+    'leads[status][0][status_id]',
+    'leads[update][0][new_status_id]',
+    'talk[update][0][status_id]'
+  );
+  
+  info.previous_stage_id = extractFlatValue(body,
+    'leads[update][0][old_status_id]',
+    'leads[status][0][old_status_id]',
+    'leads[update][0][previous_status_id]'
+  );
+  
+  info.pipeline_name = extractFlatValue(body,
+    'leads[update][0][pipeline][name]',
+    'leads[update][0][pipeline_name]',
+    'leads[update][0][_embedded][pipeline][name]'
+  );
+  
+  info.stage_name = extractFlatValue(body,
+    'leads[update][0][status][name]',
+    'leads[update][0][status_name]',
+    'leads[update][0][_embedded][status][name]'
+  );
+  
+  if (info.previous_stage_id && info.stage_id && info.previous_stage_id !== info.stage_id) {
+    info.stage_changed = true;
+  }
+  
+  // تعيين القيم الافتراضية من التكوين
+  if (info.pipeline_id && PIPELINE_CONFIG[info.pipeline_id]) {
+    const config = PIPELINE_CONFIG[info.pipeline_id];
+    info.pipeline_name = info.pipeline_name || config.name;
+    info.service_type = config.service;
+    if (!info.stage_id) {
+      info.stage_id = config.initial_stage;
+      info.stage_name = config.initial_stage_name;
+    }
+  }
+  
+  return info;
+}
+
+// تحديد نوع التدخل المطلوب
+function determineInterventionType(pipeline_id, stage_id, tags) {
+  const intervention = {
+    type: 'bot',
+    reason: [],
+    priority: 'normal',
+    service: 'general',
+    language: 'ar',
+    requires_human: false,
+    use_ai_agent: false,
+    confidence: 'high'
+  };
+  
+  const pipelineConfig = PIPELINE_CONFIG[pipeline_id];
+  if (pipelineConfig) {
+    intervention.service = pipelineConfig.service;
+    
+    if (pipelineConfig.critical_stages && pipelineConfig.critical_stages.includes(stage_id)) {
+      intervention.type = 'human';
+      intervention.requires_human = true;
+      intervention.priority = 'critical';
+      intervention.reason.push('critical_stage');
+    } else if (pipelineConfig.ai_stages && pipelineConfig.ai_stages.includes(stage_id)) {
+      intervention.type = 'ai_agent';
+      intervention.use_ai_agent = true;
+      intervention.priority = 'high';
+      intervention.reason.push('ai_stage');
+    } else if (pipelineConfig.bot_stages && pipelineConfig.bot_stages.includes(stage_id)) {
+      intervention.type = 'bot';
+      intervention.reason.push('bot_stage');
+    }
+  } else {
+    intervention.confidence = 'medium';
+    intervention.reason.push('unknown_pipeline');
+  }
+  
+  if (tags && tags.length > 0) {
+    const humanTags = tags.filter(tag => TAG_RULES.human_required.includes(tag));
+    if (humanTags.length > 0) {
+      intervention.type = 'human';
+      intervention.requires_human = true;
+      intervention.priority = 'critical';
+      intervention.reason.push(`human_tags: ${humanTags.join(', ')}`);
+    }
+    
+    const aiTags = tags.filter(tag => TAG_RULES.ai_required.includes(tag));
+    if (aiTags.length > 0 && !intervention.requires_human) {
+      intervention.type = 'ai_agent';
+      intervention.use_ai_agent = true;
+      intervention.priority = intervention.priority === 'critical' ? 'critical' : 'high';
+      intervention.reason.push(`ai_tags: ${aiTags.join(', ')}`);
+    }
+    
+    const botTags = tags.filter(tag => TAG_RULES.bot_only.includes(tag));
+    if (botTags.length > 0 && !intervention.requires_human && !intervention.use_ai_agent) {
+      intervention.type = 'bot';
+      intervention.use_ai_agent = false;
+      intervention.priority = 'normal';
+      intervention.reason.push(`bot_tags: ${botTags.join(', ')}`);
+    }
+    
+    for (const tag of tags) {
+      if (TAG_RULES.language[tag]) {
+        intervention.language = tag;
+        break;
+      }
+    }
+  }
+  
+  return intervention;
+}
+
+function classifyEvent(body) {
+  const keys = Object.keys(body || {});
+  const has = (prefix) => keys.some(k => k.startsWith(prefix));
+  
+  const eventTypes = [
+    { check: 'message[add]', type: 'message[add]', priority: 10, category: 'message', expectedPulses: 9 },
+    { check: 'unsorted[add]', type: 'unsorted[add]', priority: 8, category: 'lead_creation', expectedPulses: 6 },
+    { check: 'talk[add]', type: 'talk[add]', priority: 6, category: 'conversation', expectedPulses: 4 },
+    { check: 'talk[update]', type: 'talk[update]', priority: 5, category: 'conversation', expectedPulses: 4 },
+    { check: 'leads[update]', type: 'leads[update]', priority: 4, category: 'lead_management', expectedPulses: 3 },
+    { check: 'leads[delete]', type: 'leads[delete]', priority: 1, category: 'deletion', expectedPulses: 1 },
+    { check: 'contacts[update]', type: 'contacts[update]', priority: 3, category: 'contact_management', expectedPulses: 2 }
+  ];
+  
+  for (const eventType of eventTypes) {
+    if (has(eventType.check)) {
+      return {
+        event_type: eventType.type,
+        priority: eventType.priority,
+        category: eventType.category,
+        expected_pulses: Math.min(eventType.expectedPulses, CONFIG.MAX_EVENTS_PER_MESSAGE)
+      };
+    }
+  }
+  
+  return { event_type: 'unknown', priority: 0, category: 'other', expected_pulses: 1 };
+}
+
+// ربط الأحداث المترابطة
+function crossReferenceEvents(eventGroups, staticData) {
+  // ربط talk[update] مع leads[update] بناءً على المعرفات المشتركة
+  for (const [key, group] of Object.entries(eventGroups)) {
+    if (!group.pipeline_id || !group.message_texts.length) {
+      // البحث في الكاش عن معلومات مكملة
+      for (const [cachedKey, cachedGroup] of Object.entries(staticData.messageCache)) {
+        if (group.entity_id && cachedGroup.entity_id === group.entity_id) {
+          // دمج المعلومات الناقصة
+          if (!group.pipeline_id && cachedGroup.pipeline_id) {
+            group.pipeline_id = cachedGroup.pipeline_id;
+            group.pipeline_name = cachedGroup.pipeline_name;
+          }
+          if (!group.stage_id && cachedGroup.stage_id) {
+            group.stage_id = cachedGroup.stage_id;
+            group.stage_name = cachedGroup.stage_name;
+          }
+          if (group.message_texts.length === 0 && cachedGroup.message_texts) {
+            group.message_texts = cachedGroup.message_texts;
+          }
+        }
+      }
+    }
+  }
+  return eventGroups;
+}
+
+// تنظيف الكاش القديم
+function cleanupCache() {
+  const now = Date.now();
+  if (now - staticData.lastCleanup > 60000) {
+    let removedCount = 0;
+    
+    for (const key in staticData.messageCache) {
+      if (now - staticData.messageCache[key].timestamp > CONFIG.MESSAGE_CACHE_TTL) {
+        delete staticData.messageCache[key];
+        removedCount++;
+      }
+    }
+    
+    for (const key in staticData.processedGroups) {
+      if (now - staticData.processedGroups[key] > CONFIG.MESSAGE_CACHE_TTL) {
+        delete staticData.processedGroups[key];
+      }
+    }
+    
+    staticData.cacheSize = Object.keys(staticData.messageCache).length;
+    
+    if (staticData.cacheSize > CONFIG.MAX_CACHE_SIZE) {
+      const entries = Object.entries(staticData.messageCache)
+        .sort((a, b) => a[1].timestamp - b[1].timestamp);
+      
+      const toRemove = entries.slice(0, staticData.cacheSize - CONFIG.MAX_CACHE_SIZE);
+      toRemove.forEach(([key]) => {
+        delete staticData.messageCache[key];
+        removedCount++;
+      });
+    }
+    
+    staticData.lastCleanup = now;
+    debugLog(`Cache cleanup: removed ${removedCount} items, current size: ${staticData.cacheSize}`);
+  }
+}
+
+// ==================
+// المعالج الرئيسي
+// ==================
+cleanupCache();
+
+const eventGroups = {};
+
+// استعادة المجموعات غير المكتملة من الكاش
+for (const [key, cachedGroup] of Object.entries(staticData.messageCache)) {
+  if (!cachedGroup.is_complete) {
+    eventGroups[key] = {
+      ...cachedGroup,
+      unique_events: new Set(cachedGroup.unique_events_array || [])
+    };
+    debugLog(`Restored group from cache: ${key}`);
+  }
+}
+
+// معالجة كل نبضة واردة
+items.forEach((item, index) => {
+  const j = item.json || {};
+  const b = j.body || {};
+  
+  debugLog(`\n=== Processing Event ${index + 1} ===`);
+  debugLog("Body keys sample:", Object.keys(b).slice(0, 10));
+  
+  const classification = classifyEvent(b);
+  debugLog("Event classification:", classification);
+  
+  if (classification.category === 'deletion') {
+    debugLog("Ignoring deletion event");
+    return;
+  }
+  
+  // استخراج المعرفات الموحدة - محسن
+  const lead_id = extractFlatValue(b,
+    'leads[update][0][id]',
+    'leads[add][0][id]',
+    'unsorted[add][0][lead_id]',
+    'talk[update][0][lead_id]'
+  );
+  
+  const entity_id = lead_id || extractFlatValue(b,
+    'message[add][0][entity_id]',
+    'message[add][0][element_id]',
+    'talk[update][0][entity_id]',
+    'talk[add][0][entity_id]',
+    'unsorted[add][0][source_data][contact_id]',
+    'unsorted[add][0][source_data][from_id]'
+  );
+  
+  const conversation_id = extractFlatValue(b,
+    'message[add][0][chat_id]',
+    'talk[update][0][chat_id]',
+    'talk[add][0][chat_id]',
+    'unsorted[add][0][source_data][conversation_id]',
+    'unsorted[add][0][source_data][origin][chat_id]',
+    'unsorted[add][0][source_data][thread_id]',
+    'leads[update][0][chat_id]'
+  );
+  
+  const message_id = extractFlatValue(b,
+    'message[add][0][id]',
+    'unsorted[add][0][source_data][data][0][id]',
+    'leads[update][0][message_id]',
+    'talk[update][0][message_id]'
+  );
+  
+  const talk_id = extractFlatValue(b,
+    'talk[update][0][talk_id]',
+    'talk[add][0][talk_id]',
+    'message[add][0][talk_id]',
+    'talk[update][0][id]'
+  );
+  
+  const source = extractFlatValue(b,
+    'message[add][0][origin]',
+    'unsorted[add][0][source]',
+    'talk[update][0][origin]',
+    'talk[add][0][origin]'
+  );
+  
+  const platform = detectPlatform(source, b);
+  
+  const created_at = extractFlatValue(b,
+    'message[add][0][created_at]',
+    'unsorted[add][0][created_at]',
+    'talk[update][0][updated_at]',
+    'talk[add][0][created_at]',
+    'unsorted[add][0][source_data][date]',
+    'leads[update][0][updated_at]'
+  );
+  
+  // استخراج البيانات باستخدام الدالة المحسنة جداً
+  const message_text = extractMessageText(b, classification.event_type);
+  
+  const client_name = extractFlatValue(b,
+    'message[add][0][author][name]',
+    'unsorted[add][0][source_data][client][name]',
+    'unsorted[add][0][source_data][from]',
+    'unsorted[add][0][source_data][name]',
+    'contacts[add][0][name]',
+    'contacts[update][0][name]',
+    'leads[update][0][contact_name]',
+    'talk[update][0][contact_name]'
+  );
+  
+  const pipelineStageInfo = extractPipelineStageInfo(b);
+  const tags = extractTags(b);
+  
+  // توليد البصمة المحسنة
+  const fingerprint = generateFingerprint({
+    entity_id,
+    conversation_id,
+    lead_id,
+    chat_id: conversation_id,
+    platform,
+    created_at
+  });
+  
+  debugLog("Fingerprint:", fingerprint);
+  debugLog("Text:", message_text || "[EMPTY]");
+  debugLog("Lead ID:", lead_id);
+  debugLog("Pipeline:", pipelineStageInfo.pipeline_id, pipelineStageInfo.pipeline_name);
+  debugLog("Stage:", pipelineStageInfo.stage_id, pipelineStageInfo.stage_name);
+  debugLog("Tags:", tags);
+  
+  // إنشاء أو تحديث المجموعة
+  if (!eventGroups[fingerprint]) {
+    eventGroups[fingerprint] = {
+      // المعرفات
+      fingerprint,
+      entity_id: '',
+      lead_id: '',
+      conversation_id: '',
+      message_id: '',
+      talk_id: '',
+      
+      // البيانات
+      message_texts: [],
+      client_name: '',
+      
+      // Pipeline/Stage
+      pipeline_id: '',
+      pipeline_name: '',
+      stage_id: '',
+      stage_name: '',
+      previous_stage_id: '',
+      stage_changed: false,
+      
+      // التجميع
+      tags: new Set(),
+      source: '',
+      platform,
+      
+      // الحالة
+      pulses_received: 0,
+      expected_pulses: classification.expected_pulses,
+      has_message: false,
+      is_new_lead: false,
+      is_complete: false,
+      
+      // التوقيت
+      created_at: created_at || Date.now() / 1000,
+      first_pulse_time: Date.now(),
+      last_pulse_time: Date.now(),
+      
+      // الأحداث
+      unique_events: new Set(),
+      event_priorities: [],
+      
+      // معلومات إضافية للربط
+      all_event_types: []
+    };
+  }
+  
+  const group = eventGroups[fingerprint];
+  
+  // تحديث البيانات - دمج من كل النبضات
+  group.pulses_received++;
+  group.last_pulse_time = Date.now();
+  group.unique_events.add(classification.event_type);
+  group.event_priorities.push(classification.priority);
+  group.all_event_types.push(classification.event_type);
+  
+  // تحديث المعرفات - مع الأولوية للـ lead_id
+  if (lead_id && !group.lead_id) group.lead_id = lead_id;
+  if (entity_id && !group.entity_id) group.entity_id = entity_id;
+  if (conversation_id && !group.conversation_id) group.conversation_id = conversation_id;
+  if (message_id && !group.message_id) group.message_id = message_id;
+  if (talk_id && !group.talk_id) group.talk_id = talk_id;
+  
+  // جمع النصوص من كل الأحداث
+  if (message_text) {
+    group.message_texts.push({
+      text: message_text,
+      event_type: classification.event_type,
+      priority: classification.priority,
+      timestamp: created_at || Date.now() / 1000
+    });
+    group.has_message = true;
+    debugLog(`✓ Added text to group: "${message_text.substring(0, 50)}..."`);
+  }
+  
+  // تحديث البيانات الأخرى
+  if (client_name && !group.client_name) group.client_name = client_name;
+  if (source && !group.source) group.source = source;
+  
+  // دمج معلومات Pipeline/Stage من جميع الأحداث
+  if (pipelineStageInfo.pipeline_id) {
+    group.pipeline_id = pipelineStageInfo.pipeline_id;
+    group.pipeline_name = pipelineStageInfo.pipeline_name;
+  }
+  if (pipelineStageInfo.stage_id) {
+    group.stage_id = pipelineStageInfo.stage_id;
+    group.stage_name = pipelineStageInfo.stage_name;
+  }
+  if (pipelineStageInfo.previous_stage_id) {
+    group.previous_stage_id = pipelineStageInfo.previous_stage_id;
+    group.stage_changed = pipelineStageInfo.stage_changed;
+  }
+  
+  // دمج Tags
+  tags.forEach(tag => group.tags.add(tag));
+  
+  // تحديد الأعلام
+  if (classification.event_type === 'message[add]' && message_text) {
+    group.has_message = true;
+  }
+  if (classification.event_type === 'unsorted[add]') {
+    group.is_new_lead = true;
+  }
+  
+  // التحقق من الاكتمال
+  const timeSinceFirstPulse = Date.now() - group.first_pulse_time;
+  if (group.pulses_received >= group.expected_pulses ||
+      group.pulses_received >= CONFIG.MAX_EVENTS_PER_MESSAGE ||
+      timeSinceFirstPulse > CONFIG.TIME_WINDOW * 1000) {
+    group.is_complete = true;
+    debugLog(`Group ${fingerprint} marked as complete`);
+  }
+  
+  // حفظ في الكاش
+  staticData.messageCache[fingerprint] = {
+    ...group,
+    unique_events_array: Array.from(group.unique_events),
+    timestamp: Date.now()
+  };
+});
+
+// ربط الأحداث المترابطة
+const linkedEventGroups = crossReferenceEvents(eventGroups, staticData);
+
+// ==================
+// إنتاج النتائج النهائية
+// ==================
+const finalResults = [];
+
+for (const [fingerprint, group] of Object.entries(linkedEventGroups)) {
+  // التحكم في المسارات - نبضة واحدة فقط تمر
+  const isProcessed = staticData.processedGroups && staticData.processedGroups[fingerprint];
+  
+  if (isProcessed) {
+    debugLog(`Group ${fingerprint} already processed - stopping this path`);
+    continue;
+  }
+  
+  // وضع علامة كمعالج
+  if (!staticData.processedGroups) {
+    staticData.processedGroups = {};
+  }
+  staticData.processedGroups[fingerprint] = Date.now();
+  
+  // اختيار أفضل نص - مع دمج النصوص من الأحداث المختلفة
+  let finalMessageText = '';
+  if (group.message_texts.length > 0) {
+    // ترتيب حسب الأولوية والوقت
+    group.message_texts.sort((a, b) => {
+      if (b.priority !== a.priority) return b.priority - a.priority;
+      return b.timestamp - a.timestamp;
+    });
+    
+    // اختيار أطول نص من أعلى أولوية
+    const highPriorityTexts = group.message_texts.filter(t => 
+      t.priority === group.message_texts[0].priority
+    );
+    
+    finalMessageText = highPriorityTexts.reduce((longest, current) => 
+      current.text.length > longest.length ? current.text : longest, ''
+    );
+    
+    if (group.message_texts.length > 1) {
+      debugLog(`Multiple texts found (${group.message_texts.length}), selected: "${finalMessageText.substring(0, 50)}..."`);
+    }
+  }
+  
+  // تحديد نوع التدخل المطلوب
+  const intervention = determineInterventionType(
+    group.pipeline_id,
+    group.stage_id,
+    Array.from(group.tags)
+  );
+  
+  // تحديد الإجراء المطلوب
+  let action_required = 'log_only';
+  let should_respond = false;
+  
+  if (group.has_message && finalMessageText) {
+    action_required = 'process_message';
+    should_respond = true;
+  } else if (group.is_new_lead && finalMessageText) {
+    action_required = 'process_new_lead_message';
+    should_respond = true;
+  } else if (group.is_new_lead) {
+    action_required = 'welcome_new_lead';
+    should_respond = true;
+  } else if (group.stage_changed) {
+    action_required = 'stage_transition';
+    should_respond = intervention.use_ai_agent;
+  } else if (!finalMessageText && !group.is_new_lead) {
+    action_required = 'ignore';
+    should_respond = false;
+  }
+  
+  const completeness_percentage = Math.min(100,
+    Math.round((group.pulses_received / group.expected_pulses) * 100));
+  
+  let confidence_level = 'low';
+  if (completeness_percentage >= 90 && finalMessageText) {
+    confidence_level = 'high';
+  } else if (completeness_percentage >= 70 || finalMessageText) {
+    confidence_level = 'medium';
+  }
+  
+  // تتبع تاريخ المراحل
+  const stagesHistory = [];
+  if (group.previous_stage_id && group.stage_id) {
+    stagesHistory.push(group.previous_stage_id);
+    stagesHistory.push(group.stage_id);
+  } else if (group.stage_id) {
+    stagesHistory.push(group.stage_id);
+  }
+  
+  debugLog(`\n=== Final Result for ${fingerprint} ===`);
+  debugLog("Message text:", finalMessageText || "EMPTY");
+  debugLog("Lead ID:", group.lead_id);
+  debugLog("Action required:", action_required);
+  debugLog("Intervention type:", intervention.type);
+  debugLog("Completeness:", `${completeness_percentage}%`);
+  debugLog("Event types found:", Array.from(group.unique_events));
+  
+  // بناء النتيجة النهائية الشاملة
+  finalResults.push({
+    json: {
+      // === حقول Google Sheets بالترتيب الصحيح ===
+      group_key: fingerprint,
+      lead_id: group.lead_id || group.entity_id || '',
+      chat_id: group.conversation_id || '',
+      message_text: finalMessageText,
+      client_name: group.client_name || '',
+      
+      // event_types و events_count
+      event_types: Array.from(group.unique_events).join(', '),
+      events_count: group.pulses_received,
+      
+      // الإجراءات
+      action_required,
+      should_respond,
+      
+      // التوقيتات
+      event_time_utc: new Date(Number(group.created_at) * 1000).toISOString(),
+      received_at_utc: new Date().toISOString(),
+      
+      // unique_keys - دمج كل المعرفات الفريدة
+      unique_keys: [
+        group.message_id || '',
+        group.talk_id || '',
+        group.lead_id || '',
+        group.entity_id || ''
+      ].filter(k => k).join('_'),
+      
+      // معلومات Pipeline
+      pipeline_id: group.pipeline_id || '',
+      pipeline_name: group.pipeline_name || 'Unknown Pipeline',
+      pipeline_service: PIPELINE_CONFIG[group.pipeline_id]?.service || 'general',
+      
+      // معلومات Stage
+      stage_id: group.stage_id || '',
+      stage_name: group.stage_name || 'Initial',
+      previous_stage_id: group.previous_stage_id || '',
+      stage_changed: group.stage_changed,
+      stages_history: stagesHistory.join(' → ') || '',
+      
+      // === حقول إضافية للـ workflow ===
+      message_fingerprint: fingerprint,
+      message_id: group.message_id || '',
+      talk_id: group.talk_id || '',
+      entity_id: group.entity_id || '',
+      
+      // Pipeline object للتوافق مع الـ nodes الأخرى
+      pipeline: {
+        id: group.pipeline_id || '',
+        name: group.pipeline_name || 'Unknown Pipeline',
+        service: intervention.service
+      },
+      
+      // Stage object
+      stage: {
+        id: group.stage_id || '',
+        name: group.stage_name || 'Initial',
+        previous_id: group.previous_stage_id || '',
+        changed: group.stage_changed
+      },
+      
+      // Tags
+      tags: Array.from(group.tags),
+      has_tags: group.tags.size > 0,
+      
+      // معلومات التدخل
+      intervention: {
+        type: intervention.type,
+        use_ai_agent: intervention.use_ai_agent,
+        requires_human: intervention.requires_human,
+        priority: intervention.priority,
+        reason: intervention.reason.join('; '),
+        language: intervention.language,
+        confidence: intervention.confidence
+      },
+      
+      // معلومات إضافية
+      has_message: group.has_message,
+      is_new_lead: group.is_new_lead,
+      confidence_level,
+      pulses_received: group.pulses_received,
+      expected_pulses: group.expected_pulses,
+      completeness_percentage,
+      completeness_status: group.is_complete ? 'complete' : 'partial',
+      is_complete: group.is_complete,
+      
+      // معلومات المنصة
+      source: group.source || 'waba',
+      platform: group.platform,
+      service_type: intervention.service,
+      response_channel: group.platform === 'whatsapp' ? 'whatsapp' :
+                       group.platform === 'instagram' ? 'instagram' :
+                       group.platform === 'facebook' ? 'messenger' : 'unknown',
+      
+      // معلومات الوقت
+      aggregation_time_ms: group.last_pulse_time - group.first_pulse_time,
+      processing_time_ms: Date.now() - group.first_pulse_time,
+      
+      // التحكم في المسار
+      is_primary_record: true,
+      processed: true,
+      ready_for_processing: true,
+      deduplication_count: group.pulses_received,
+      cache_size: Object.keys(staticData.messageCache).length,
+      has_valid_content: !!finalMessageText || group.is_new_lead,
+      
+      // استراتيجية الاستجابة
+      response_strategy: {
+        type: should_respond ? 'respond' : 'log_only',
+        method: group.is_new_lead ? 'welcome' : 'process',
+        delay: 0,
+        template: null
+      },
+      
+      // التوجيه
+      routing: {
+        destination: should_respond ? 'ai_response' : 'log_only',
+        method: 'process',
+        channel: group.platform,
+        priority: intervention.priority,
+        has_ai_context: false,
+        template: null
+      },
+      
+      // معلومات Debug محسنة
+      debug_info: {
+        text_extracted: !!finalMessageText,
+        text_length: finalMessageText.length,
+        text_count: group.message_texts.length,
+        all_texts: group.message_texts.map(m => m.text).join(" | "),
+        all_text_sources: group.message_texts.map(m => m.event_type).join(", "),
+        event_types_found: Array.from(group.unique_events),
+        all_event_types: group.all_event_types,
+        max_priority: Math.max(...group.event_priorities),
+        extraction_status: finalMessageText ? 'SUCCESS' : 'NO_TEXT_FOUND',
+        fingerprint_used: fingerprint,
+        platform_detected: group.platform,
+        cache_restored: false,
+        lead_id_found: !!group.lead_id,
+        pipeline_found: !!group.pipeline_id
+      }
+    }
+  });
+  
+  // تنظيف الكاش للمجموعات المكتملة
+  if (group.is_complete) {
+    delete staticData.messageCache[fingerprint];
+  }
+}
+
+debugLog(`\n=== Processing Complete ===`);
+debugLog(`Total groups: ${Object.keys(linkedEventGroups).length}`);
+debugLog(`Final results: ${finalResults.length}`);
+debugLog('Primary records passed:', finalResults.filter(r => r.json.is_primary_record).length);
+debugLog(`Cache size: ${Object.keys(staticData.messageCache).length}`);
+
+// إضافة رسالة تحذيرية إذا كانت جميع الرسائل فارغة
+const emptyMessages = finalResults.filter(r => !r.json.message_text);
+if (emptyMessages.length === finalResults.length && finalResults.length > 0) {
+  console.warn("⚠️ WARNING: All messages have no text content! Check webhook data structure.");
+  console.warn("Event types found:", finalResults.map(r => r.json.event_types).join(', '));
+  console.warn("Debug info for first result:", finalResults[0]?.json.debug_info);
+}
+
+// إذا لم نرجع أي نتائج، أوقف المسار
+if (finalResults.length === 0) {
+  debugLog("No new records to process - stopping workflow");
+  return [];
+}
+
+return finalResults;
