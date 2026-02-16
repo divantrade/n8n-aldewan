@@ -114,8 +114,8 @@ jobs:
             echo "---"
             echo "Deploying: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
 
-            # Prepare payload - remove read-only fields
-            PAYLOAD=$(jq 'del(.id, .createdAt, .updatedAt, .versionId, .tags, .tagNames, .shared, .active, .hash, .pinData)' "$filepath")
+            # Prepare payload - keep ONLY fields the n8n API accepts
+            jq '{name, nodes, connections, settings, staticData}' "$filepath" > /tmp/payload.json
 
             # Test connectivity first
             if [ "$filepath" = "$(echo $FILES | awk '{print $1}')" ]; then
@@ -128,12 +128,12 @@ jobs:
               }
             fi
 
-            # Deploy via n8n API (-k allows self-signed SSL certificates)
+            # Deploy via n8n API (-k allows self-signed SSL certificates, @file avoids arg-too-long)
             HTTP_CODE=$(curl -s -k -o /tmp/response.json -w "%{http_code}" \
               -X PUT \
               -H "X-N8N-API-KEY: $N8N_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "$PAYLOAD" \
+              -d @/tmp/payload.json \
               "$N8N_URL/api/v1/workflows/$WORKFLOW_ID" \
               --max-time 30 \
               --retry 2 \
