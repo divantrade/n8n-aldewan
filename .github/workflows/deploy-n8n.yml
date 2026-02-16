@@ -107,8 +107,19 @@ jobs:
             # Prepare payload - remove read-only fields
             PAYLOAD=$(jq 'del(.id, .createdAt, .updatedAt, .versionId) | {name, nodes, connections, settings, staticData, tags}' "$filepath")
 
-            # Deploy via n8n API
-            HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            # Test connectivity first
+            if [ "$filepath" = "$(echo $FILES | awk '{print $1}')" ]; then
+              echo "Testing connection to n8n at: ${N8N_URL}/api/v1/workflows"
+              curl -sSf -k -o /dev/null -w "Connection OK (HTTP %{http_code})\n" \
+                -H "X-N8N-API-KEY: $N8N_API_KEY" \
+                "$N8N_URL/api/v1/workflows" --max-time 15 || {
+                echo "::error::Cannot reach n8n API at $N8N_URL - check N8N_URL secret and server accessibility"
+                exit 1
+              }
+            fi
+
+            # Deploy via n8n API (-k allows self-signed SSL certificates)
+            HTTP_CODE=$(curl -s -k -o /tmp/response.json -w "%{http_code}" \
               -X PUT \
               -H "X-N8N-API-KEY: $N8N_API_KEY" \
               -H "Content-Type: application/json" \
