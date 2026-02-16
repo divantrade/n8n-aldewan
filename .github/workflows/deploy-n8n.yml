@@ -7,6 +7,7 @@ on:
       - master
     paths:
       - 'workflows/*.json'
+      - '.github/workflows/deploy-n8n.yml'
 
   workflow_dispatch:
     inputs:
