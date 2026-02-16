@@ -105,7 +105,7 @@ jobs:
             echo "Deploying: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
 
             # Prepare payload - remove read-only fields
-            PAYLOAD=$(jq 'del(.id, .createdAt, .updatedAt, .versionId) | {name, nodes, connections, settings, staticData, tags}' "$filepath")
+            PAYLOAD=$(jq 'del(.id, .createdAt, .updatedAt, .versionId, .tags, .tagNames, .shared, .active, .hash, .pinData)' "$filepath")
 
             # Test connectivity first
             if [ "$filepath" = "$(echo $FILES | awk '{print $1}')" ]; then
