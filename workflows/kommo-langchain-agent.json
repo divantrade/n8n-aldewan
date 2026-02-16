@@ -1,0 +1,510 @@
+{
+  "name": "kommo",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "216a7fa7-776e-4910-beea-a2a23b898cfd",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -144,
+        -64
+      ],
+      "id": "3cbd5f05-0f0a-48e5-9f3b-14e7cc070fb7",
+      "name": "Webhook",
+      "webhookId": "216a7fa7-776e-4910-beea-a2a23b898cfd"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        288,
+        -64
+      ],
+      "id": "1c647f09-270f-47fb-97bf-aeb842130148",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1gEBF0y9g9UwslW6SWiO5aeyJ6hYzFOY4I5sQI5UVC44",
+          "mode": "list",
+          "cachedResultName": "kommo",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gEBF0y9g9UwslW6SWiO5aeyJ6hYzFOY4I5sQI5UVC44/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 241084562,
+          "mode": "list",
+          "cachedResultName": "Kommo_Raw",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gEBF0y9g9UwslW6SWiO5aeyJ6hYzFOY4I5sQI5UVC44/edit#gid=241084562"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "raw_data": "={{$json.raw_data}}",
+            "executionMode": "={{$json.executionMode}}",
+            "message_origin": "={{$json.message_origin}}",
+            "event_ts_unix": "={{$json.event_ts_unix}}",
+            "event_time_utc": "={{$json.event_time_utc}}",
+            "event_time_istanbul": "={{$json.event_time_istanbul}}",
+            "lead_id": "={{$json.lead_id}}",
+            "chat_id": "={{$json.chat_id}}",
+            "message_id": "={{$json.message_id}}",
+            "message_text": "={{$json.message_text}}",
+            "webhookUrl": "={{$json.webhookUrl}}",
+            "processed": "={{$json.processed}}",
+            "event_type": "={{$json.event_time_utc}}",
+            "received_at_utc": "={{$json.received_at_utc}}"
+          },
+          "matchingColumns": [
+            "webhookUrl"
+          ],
+          "schema": [
+            {
+              "id": "raw_data",
+              "displayName": "raw_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "event_type",
+              "displayName": "event_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "event_ts_unix",
+              "displayName": "event_ts_unix",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "event_time_utc",
+              "displayName": "event_time_utc",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "event_time_istanbul",
+              "displayName": "event_time_istanbul",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message_text",
+              "displayName": "message_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message_origin",
+              "displayName": "message_origin",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "webhookUrl",
+              "displayName": "webhookUrl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "executionMode",
+              "displayName": "executionMode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "received_at_utc",
+              "displayName": "received_at_utc",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "processed",
+              "displayName": "processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        464,
+        64
+      ],
+      "id": "3b4ce208-00df-40ef-ae78-127685def3f1",
+      "name": "Append & update Limited TAX sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        -176
+      ],
+      "id": "518520fb-b44b-4751-a7d1-bb79430f7971",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node (JavaScript) — Kommo webhook normalizer (stable)\n\n// helpers\nfunction pick(...arr) {\n  return arr.find(v => v !== undefined && v !== null && v !== '');\n}\nfunction read(obj, path) {\n  return path.split('][').reduce((acc, key) => {\n    key = key.replace(/^\\[|\\]$/g, '');\n    return acc && acc[key] !== undefined ? acc[key] : undefined;\n  }, obj);\n}\nfunction originNormalize(v) {\n  const s = (v ?? '').toString().toLowerCase().trim();\n  const map = {\n    waba: 'wa', whatsapp: 'wa', wa: 'wa',\n    instagram: 'ig', ig: 'ig',\n    facebook: 'fb', fb: 'fb',\n    telegram: 'tg', tg: 'tg',\n    mail: 'email', email: 'email',\n    website: 'livechat', livechat: 'livechat'\n  };\n  return map[s] || s;\n}\n\nreturn items.map(item => {\n  const j = item.json || {};\n  const b = j.body || {};\n\n  // 1) event_type (شامل كل الأنواع اللي ظهرت معنا)\n // --- event_type (prefix-based detection for flat keys) ---\nconst keys = Object.keys(b || {});\nconst has = (p) => keys.some(k => k.startsWith(p));\n\nlet event_type = 'unknown';\nif (has('message[add]')) event_type = 'message[add]';\nelse if (has('message[update]')) event_type = 'message[update]';\nelse if (has('talk[add]')) event_type = 'talk[add]';\nelse if (has('talk[update]')) event_type = 'talk[update]';\nelse if (has('unsorted[add]')) event_type = 'unsorted[add]';\nelse if (has('unsorted[update]')) event_type = 'unsorted[update]';\nelse if (has('unsorted[delete]')) event_type = 'unsorted[delete]';\nelse if (has('leads[update]')) event_type = 'leads[update]';\nelse if (has('leads[responsible]')) event_type = 'leads[responsible]';\nelse if (has('leads[delete]')) event_type = 'leads[delete]';\nelse if (has('contacts[add]')) event_type = 'contacts[add]';\nelse if (has('contacts[update]')) event_type = 'contacts[update]';\nelse if (has('task[add]')) event_type = 'task[add]';\nelse if (has('task[delete]')) event_type = 'task[delete]';\n  \n  // 2) IDs الأساسية\n  const lead_id_raw = pick(\n    b['leads[update][0][id]'],\n    b['leads[responsible][0][id]'],\n    b['leads[delete][0][id]'],\n    b['talk[update][0][entity_id]'],\n    b['talk[add][0][entity_id]'],\n    b['unsorted[add][0][lead_id]'],\n    read(b, 'unsorted[update][0][data][leads][0][id]'),\n    // unsorted delete: accept / decline\n    read(b, 'unsorted[delete][0][accept_result][leads][0]'),\n    read(b, 'unsorted[delete][0][decline_result][leads][0]'),\n    b['message[add][0][entity_id]'],\n    b['task[add][0][element_id]'],\n    ''\n  );\n  const lead_id = (lead_id_raw === '0' || lead_id_raw === 0) ? '' : (lead_id_raw || '');\n\n  const chat_id = pick(\n    b['talk[update][0][chat_id]'],\n    b['talk[add][0][chat_id]'],\n    read(b, 'unsorted[add][0][source_data][origin][chat_id]'),\n    read(b, 'unsorted[update][0][source_data][origin][chat_id]'),\n    b['message[add][0][chat_id]'],\n    ''\n  ) || '';\n\n  const message_id = pick(\n    b['message[add][0][id]'],\n    read(b, 'unsorted[add][0][source_data][data][0][id]'),\n    read(b, 'unsorted[update][0][source_data][data][0][id]'),\n    ''\n  ) || '';\n\n  const task_id = pick(\n    b['task[add][0][id]'],\n    b['task[delete][0][id]'],\n    ''\n  ) || '';\n\n  const message_text =\n    pick(\n      b['message[add][0][text]'],\n      read(b,'unsorted[add][0][source_data][data][0][text]'),\n      read(b,'unsorted[update][0][source_data][data][0][text]')\n    ) || '';\n\n  // 3) origin/channel موحد\n  const originCandidate = pick(\n    b['message[add][0][origin]'],\n    b['message[update][0][origin]'],\n    b['talk[add][0][origin]'],\n    b['talk[update][0][origin]'],\n    b['unsorted[add][0][origin]'],\n    b['unsorted[update][0][origin]'],\n    b['leads[update][0][origin]'],\n    b['leads[responsible][0][origin]'],\n    b['message[add][0][provider]'],\n    b['unsorted[add][0][provider]'],\n    b['talk[update][0][provider]'],\n    b['message[add][0][channel]'],\n    b['unsorted[add][0][channel]'],\n    b['talk[update][0][channel]'],\n    read(b,'unsorted[add][0][source_data][service]'),\n    read(b,'unsorted[update][0][source_data][service]'),\n    ''\n  );\n  const message_origin = originNormalize(originCandidate);\n\n  // 4) Timestamp موحد (Unix sec إن وُجد، أو string تاريخي)\n  const rawTs = pick(\n    b['message[add][0][created_at]'],\n    b['message[update][0][updated_at]'],\n    b['talk[add][0][created_at]'],\n    b['talk[update][0][updated_at]'],\n    b['unsorted[add][0][created_at]'],\n    b['unsorted[update][0][created_at]'],\n    read(b,'unsorted[add][0][source_data][date]'),\n    read(b,'unsorted[update][0][source_data][data][0][date]'),\n    b['leads[update][0][updated_at]'],\n    (b['leads[responsible][0][updated_at]'] || b['leads[responsible][0][last_modified]']),\n    (b['task[add][0][updated_at]'] || b['task[add][0][created_at]'] || b['task[add][0][complete_before]'] || b['task[add][0][last_modified]'] || b['task[add][0][date_create]']),\n    '' // leads[delete] / task[delete] غالبًا بلا توقيت\n  ) || '';\n\n  let event_ts_unix = '';\n  if (typeof rawTs === 'string' && rawTs.includes('-')) {\n    const ms = Date.parse(rawTs.replace(' ', 'T') + 'Z'); // اعتبره UTC\n    if (!isNaN(ms)) event_ts_unix = Math.floor(ms / 1000).toString();\n  } else {\n    const n = Number(rawTs);\n    if (!isNaN(n) && n > 0) event_ts_unix = String(n);\n  }\n  const event_time_utc = event_ts_unix ? new Date(Number(event_ts_unix) * 1000).toISOString() : '';\n  const event_time_istanbul = event_ts_unix\n    ? new Date(Number(event_ts_unix) * 1000).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })\n    : '';\n\n  // 5) السجل النهائي (جاهز للمابينج على Google Sheets)\n  const record = {\n    raw_data: JSON.stringify(b),\n    event_type,\n    event_ts_unix,\n    event_time_utc,\n    event_time_istanbul,\n    lead_id,\n    chat_id,\n    message_id,\n    message_text,\n    message_origin,\n    webhookUrl: j.webhookUrl || '',\n    executionMode: j.executionMode || '',\n    received_at_utc: new Date().toISOString(),\n    processed: false,\n    task_id,\n  };\n\n  return { json: record };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -64
+      ],
+      "id": "44b403ea-c8f1-4420-8214-b67f6897b113",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        896,
+        -112
+      ],
+      "id": "d4b9680d-c643-4a68-89e4-58e524da1f75",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        704,
+        80
+      ],
+      "id": "8ade879a-48ac-451d-9911-eeef2edf5b53"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "conditions": [
+              {
+                "leftValue": "={{$json.event_type}}",
+                "rightValue": "message[add]",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ]
+          }
+        },
+        "options": {}
+      },
+      "id": "filter_messages",
+      "name": "Filter Chat Messages",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        512,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "أنت مساعد خدمة عملاء محترف. استجب للعملاء بلطف وود، وقدم معلومات دقيقة ومفيدة.",
+          "maxIterations": 5,
+          "returnIntermediateSteps": false
+        }
+      },
+      "id": "ai_agent_node",
+      "name": "AI Agent for Kommo",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        912,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4-turbo-preview",
+        "options": {
+          "maxTokens": 500,
+          "temperature": 0.7
+        }
+      },
+      "id": "openai_model",
+      "name": "OpenAI Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        912,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "sessionKey": "{{$json.chat_id}}",
+        "contextWindowLength": 10
+      },
+      "id": "memory_buffer",
+      "name": "Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1,
+      "position": [
+        912,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-domain.kommo.com/api/v4/chats/{{$json.chat_id}}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_ACCESS_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"text\": \"{{$json.output}}\",\n  \"entity_id\": \"{{$json.lead_id}}\",\n  \"entity_type\": \"leads\"\n}",
+        "options": {}
+      },
+      "id": "send_to_kommo",
+      "name": "Send Reply to Kommo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1104,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY8s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1104,
+        48
+      ],
+      "id": "6c4e6f55-73f4-47d3-b0cd-9602b00eaa1e",
+      "name": "Add leads"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append & update Limited TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append & update Limited TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        []
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        []
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "071a0a2b-2b2c-4dda-90b9-6d0961690c61",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bbcc8f8955fdb6b9df383b7af3b82b49081e116d9ff63429580cf5caee57238e"
+  },
+  "id": "1jSNrhzhhBq9JmbI",
+  "tags": []
+}

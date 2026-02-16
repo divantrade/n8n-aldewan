@@ -1,0 +1,2432 @@
+{
+  "name": "new",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 13
+            },
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        64
+      ],
+      "id": "e384fd97-ba51-4086-a0f6-94757a884cd6",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of items) {\n  const input = item.json;\n  const pages = input.data || input.pages || [input.page || input];\n  const pagesArray = Array.isArray(pages) ? pages : [pages];\n\n  for (const page of pagesArray) {\n    const text = page.text || \"\";\n\n    const vknMatch = text.match(/VERGİ KİMLİK NUMARASI\\s+(\\d+)/i);\n    const vkn = vknMatch ? vknMatch[1] : null;\n\n    const tcknMatch = text.match(/\\(\\s*T\\.C\\. Kimlik No\\s*\\)/i);\n    const tckn = tcknMatch ? vkn : null;\n\n    const soyadiMatch = text.match(/SOYADI\\s*\\(UNVANI\\)\\s*(.+)/i);\n    const soyadi = soyadiMatch ? soyadiMatch[1].trim() : null;\n\n    const adiMatch = text.match(/ADI\\s*(.+)/i);\n    let adi = adiMatch ? adiMatch[1].trim() : null;\n    if (soyadi && adi && soyadi === adi) adi = null;\n\n    const toplamMatch = text.match(/TOPLAM\\s*([\\d.,]+)/i);\n    const toplamTutar = toplamMatch\n      ? parseFloat(toplamMatch[1].replace(/\\./g, \"\").replace(\",\", \".\"))\n      : null;\n\n    // استخراج TUR من Ana Vergi Kodu\n    const anaVergiMatch = text.match(/Ana Vergi Kodu\\s+\\d+\\s+(.+)/i);\n    const tur = anaVergiMatch ? anaVergiMatch[1].trim() : null;\n\n    // استخراج VADE_TARIHI بالتعديل الجديد\n    const vadeMatch = text.match(/(VADESİ|VADE TARİHİ)[^\\d]*(\\d{2}[./]\\d{2}[./]\\d{4})/i);\n    const vadeTarihi = vadeMatch ? vadeMatch[2] : null;\n\n    if (!vkn && !soyadi && !adi && !toplamTutar && !tur) {\n      continue;\n    }\n\n    results.push({\n      VKN: vkn,\n      TCKN: tckn,\n      SOYADI_UNVANI: soyadi,\n      ADI: adi,\n      TOPLAM_TUTAR: toplamTutar,\n      TUR: tur,\n      VADE_TARIHI: vadeTarihi,\n      _fileIndex: items.indexOf(item),\n    });\n  }\n}\n\n// إزالة التكرار\nconst seen = new Set();\nconst uniqueResults = [];\nfor (const row of results) {\n  const key = `${row.VKN}-${row.TOPLAM_TUTAR}-${row.TUR}`;\n  if (!seen.has(key)) {\n    uniqueResults.push(row);\n    seen.add(key);\n  }\n}\n\nreturn uniqueResults.map(r => ({ json: r }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -528
+      ],
+      "id": "1e6fd3b7-03f8-40e7-ab59-d02a8bd22f00",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// جهز مصفوفة لتجميع كل التاجز\nlet allTags = [];\n\n// لو عندك Array فيه أكثر من عنصر (زي اللي بعتّه)\n// هنلف عليهم كلهم\nfor (const item of items) {\n  // الـ data جواها JSON كنص.. لازم نفكه\n  const parsedData = JSON.parse(item.json.data);\n\n  // نوصل للـ tags\n  const tags = parsedData._embedded?.tags;\n\n  if (tags && Array.isArray(tags)) {\n    for (const tag of tags) {\n      allTags.push({\n        json: {\n          id: tag.id,\n          name: tag.name\n        }\n      });\n    }\n  }\n}\n\nreturn allTags;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3632,
+        400
+      ],
+      "id": "4881f490-f02d-4ade-a239-a4c8f0eda769",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// استخرج كل الأسماء التي تبدأ بـ \"tax \"\nconst existingTaxFolders = items\n  .filter(item => item.json.name.toLowerCase().startsWith(\"tax \"))\n  .map(item => item.json.name.toLowerCase().trim());\n\n// استخرج فقط الشركات التي تحتاج إنشاء فولدر تاكس جديد\nconst output = items.filter(item => {\n  // إذا كان عنده newFolderName ويبدأ بـ \"tax \"\n  if (item.json.newFolderName && item.json.newFolderName.toLowerCase().startsWith(\"tax \")) {\n    // إذا كان هذا الاسم موجود أصلاً ضمن الفولدرات الفرعية، استبعده\n    return !existingTaxFolders.includes(item.json.newFolderName.toLowerCase().trim());\n  }\n  // استبعد الفولدرات التي هي أصلاً من نوع \"tax ...\"\n  return false;\n});\n\n// أرجع الناتج الجديد\nreturn output.map(item => ({ json: item.json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        -576
+      ],
+      "id": "e1e37b4c-b78c-4c5a-ba91-02beef5d2ceb",
+      "name": "Code3",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{$json[\"id\"]}}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -208,
+        -544
+      ],
+      "id": "98063ec7-046d-426a-87e1-208ecb7d8133",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {
+          "joinPages": "={{ true }}"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -528
+      ],
+      "id": "c0bb4342-d1c3-4b91-bb3e-a7a88568d875",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "=monthly taxes",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        144,
+        -240
+      ],
+      "id": "b6bd28fb-6406-4dc8-bf9a-66f2b87e786c",
+      "name": "Search monthly taxes",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='{{$json[\"id\"]}}' in parents and trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        272,
+        64
+      ],
+      "id": "69b5fa08-45ae-428d-868f-936665f72332",
+      "name": "Search inside monthly taxes",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1Ue1FAta0dBCJ-nIceVwogQb9DrnVO__L' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        560,
+        160
+      ],
+      "id": "7440b6eb-fe6a-4b9b-8807-987f1257a420",
+      "name": "Search Taxpayers",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1DrkXAhpOUpyWpp2gvlGCpe2MC_lt_veq' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        560,
+        -48
+      ],
+      "id": "1464611f-cf4d-4225-9a8b-029051b99336",
+      "name": "Search personal company",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1J-Gd-7w_jkWviJVfAeXxhz3ADS1CEIwx' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        560,
+        -256
+      ],
+      "id": "db35155b-bdb7-4a1b-bc9a-c63b97b9ce81",
+      "name": "Search Limited Company",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e012c99-edfb-47b7-ac05-561672204af3",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "712b6262-73b7-492d-b63b-9f43f9753d39",
+              "name": "name",
+              "value": "={{ ($json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "73c4e58b-bd21-4f9a-8199-073e4e05c17a",
+              "name": "newFolderName",
+              "value": "={{ (\"TAX \" + $json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        -256
+      ],
+      "id": "d1786d5a-9121-4f5f-94bb-d7aabf676d1a",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "={{$json[\"name\"] ? $json[\"name\"].toUpperCase() : \"\"}}",
+              "field2": "name"
+            }
+          ]
+        },
+        "joinMode": "keepEverything",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1040,
+        -144
+      ],
+      "id": "a420bba3-ccae-4999-8974-9a5103d9416f",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{$json[\"newFolderName\"]}}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{$json[\"id\"]}}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1968,
+        -576
+      ],
+      "id": "80459235-959d-4ec1-9db3-4ffff5480123",
+      "name": "Create folder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// استخرج كل الأسماء التي تبدأ بـ \"tax \"\nconst existingTaxFolders = items\n  .filter(item => item.json.name.toLowerCase().startsWith(\"tax \"))\n  .map(item => item.json.name.toLowerCase().trim());\n\n// استخرج فقط الشركات التي تحتاج إنشاء فولدر تاكس جديد\nconst output = items.filter(item => {\n  // إذا كان عنده newFolderName ويبدأ بـ \"tax \"\n  if (item.json.newFolderName && item.json.newFolderName.toLowerCase().startsWith(\"tax \")) {\n    // إذا كان هذا الاسم موجود أصلاً ضمن الفولدرات الفرعية، استبعده\n    return !existingTaxFolders.includes(item.json.newFolderName.toLowerCase().trim());\n  }\n  // استبعد الفولدرات التي هي أصلاً من نوع \"tax ...\"\n  return false;\n});\n\n// أرجع الناتج الجديد\nreturn output.map(item => ({ json: item.json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        608
+      ],
+      "id": "87dbf42a-517b-4992-bb90-8d4ccd881d68",
+      "name": "Code7"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{$json[\"newFolderName\"]}}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{$json[\"id\"]}}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2512,
+        528
+      ],
+      "id": "01c8f63e-1fc1-4b74-9e5d-eecbfce34bda",
+      "name": "Create folder1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e012c99-edfb-47b7-ac05-561672204af3",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "712b6262-73b7-492d-b63b-9f43f9753d39",
+              "name": "name",
+              "value": "={{ ($json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "73c4e58b-bd21-4f9a-8199-073e4e05c17a",
+              "name": "newFolderName",
+              "value": "={{ (\"TAX \" + $json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        -48
+      ],
+      "id": "f3fc4b57-4101-4df2-bcf5-9a9accf07e28",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e012c99-edfb-47b7-ac05-561672204af3",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "712b6262-73b7-492d-b63b-9f43f9753d39",
+              "name": "name",
+              "value": "={{ ($json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "73c4e58b-bd21-4f9a-8199-073e4e05c17a",
+              "name": "newFolderName",
+              "value": "={{ (\"TAX \" + $json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        160
+      ],
+      "id": "1f3a6eee-bc76-4aae-989f-dbbcf62a7337",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "=query",
+        "queryString": "='{{ $json[\"id\"] }}' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand name = '{{ $json[\"newFolderName\"] }}'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        880,
+        -48
+      ],
+      "id": "4e057734-e6cb-4f8f-a028-4b1df786a2d4",
+      "name": "Search TAX Folder1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "=query",
+        "queryString": "='{{ $json[\"id\"] }}' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand name = '{{ $json[\"newFolderName\"] }}'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        864,
+        160
+      ],
+      "id": "d1cda936-1d52-47b2-a86d-eab4419975d0",
+      "name": "Search TAX Folder2",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "=query",
+        "queryString": "='{{ $json[\"id\"] }}' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand name = '{{ $json[\"newFolderName\"] }}'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        880,
+        -256
+      ],
+      "id": "11e5a708-2c6c-4cdd-82d4-70d48731eb20",
+      "name": "Search TAX",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "={{$json[\"name\"] ? $json[\"name\"].toUpperCase() : \"\"}}",
+              "field2": "name"
+            }
+          ]
+        },
+        "joinMode": "keepEverything",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1168,
+        0
+      ],
+      "id": "2b7cc4c2-0241-402e-b332-d0b2b95489e2",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "Monthly report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1377545429,
+          "mode": "list",
+          "cachedResultName": "Sheet3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=1377545429"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "batchDate": "={{$now.toISODate()}}\n",
+            "documentName": "={{$json[\"documentName\"] || $json[\"name\"]}}\n",
+            "companyName": "={{$json[\"companyName\"] || \"\"}}",
+            "message": "={{$json[\"message\"]}}",
+            "status": "={{ $json[\"folderId\"] ? \"SUCCESS\" : \"FAILED\" }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "batchDate",
+              "displayName": "batchDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "documentName",
+              "displayName": "documentName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2992,
+        -656
+      ],
+      "id": "2e17c343-9235-4308-8230-d12f94c64e4a",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// كلمات يتم تجاهلها أثناء التطبيع\nconst ignoreWords = [\n  \"tax\", \"ticaret\", \"ve\", \"company\", \"ltd\", \"firmasi\",\n  \"overseas\", \"pazarlama\", \"dis\", \"ithalat\", \"halinde\",\n  \"antreas\", \"poliklinigi\", \"group\", \"smart\"\n];\n\n// دالة التطبيع\nfunction normalize(text) {\n  return (text || \"\")\n    .toLowerCase()\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\") // remove accents\n    .replace(/ğ/g, \"g\")\n    .replace(/ü/g, \"u\")\n    .replace(/ş/g, \"s\")\n    .replace(/ı/g, \"i\")\n    .replace(/ö/g, \"o\")\n    .replace(/ç/g, \"c\")\n    .replace(/[^a-z0-9\\s]/g, \" \")\n    .split(\" \")\n    .filter(w => w && !ignoreWords.includes(w))\n    .join(\" \")\n    .trim();\n}\n\n// دالة حساب نسبة التشابه البسيطة\nfunction similarity(a, b) {\n  const tokensA = new Set(a.split(\" \"));\n  const tokensB = new Set(b.split(\" \"));\n  const intersection = [...tokensA].filter(x => tokensB.has(x));\n  const union = new Set([...tokensA, ...tokensB]);\n  return union.size === 0 ? 0 : intersection.length / union.size;\n}\n\n// فصل الفولدرات عن الملفات\nconst folders = [];\nconst documents = [];\n\nfor (const item of items) {\n  const json = item.json;\n  \n  // الفولدر\n  if (json.normName && !json.fileNormName) {\n    folders.push({\n      id: json.id,\n      norm: normalize(json.normName),\n      name: json.name || \"\"\n    });\n  }\n\n  // الملف\n  if (json.fileNormName) {\n    documents.push(json);\n  }\n}\n\nconst results = [];\n\nfor (const doc of documents) {\n  const docNorm = normalize(doc.fileNormName);\n\n  let bestFolder = null;\n  let bestScore = 0;\n\n  for (const folder of folders) {\n    const score = similarity(docNorm, folder.norm);\n    if (score > bestScore) {\n      bestScore = score;\n      bestFolder = folder;\n    }\n  }\n\n  let folderId = \"\";\n  let folderName = \"\";\n\n  if (bestFolder && bestScore >= 0.5) {\n    folderId = bestFolder.id;\n    folderName = bestFolder.name;\n    console.log(`✅ Matched: [${doc.fileNormName}] → [${bestFolder.name}] | Score: ${bestScore}`);\n  } else {\n    console.log(`❌ No match for [${doc.fileNormName}] | Norm: [${docNorm}] | Best Score: ${bestScore}`);\n  }\n\n  results.push({\n    documentId: doc.id || \"\",\n    documentName: doc.name || \"\",\n    companyName: doc.companyName || \"\",\n    month: doc.month || \"\",\n    year: doc.year || \"\",\n    taxType: doc.taxType || \"\",\n    taxTypeFull: doc.taxTypeFull || \"\",\n    folderId: folderId,\n    folderName: folderName\n  });\n}\n\nreturn results.map(r => ({ json: r }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        -176
+      ],
+      "id": "4df2ecc8-bca0-4bd5-a6d4-20d045fbd7bf",
+      "name": "File and folder matching"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ignoreWords = [\"tax\", \"ltd\", \"company\", \"ticaret\", \"ve\", \"and\"];\n\nreturn items.map(item => {\n  let name = item.json.name || \"\";\n\n  // استبدال الحروف التركية بأحرف لاتينية مكافئة\n  let normName = name\n    .toLowerCase()\n    .replace(/[ş]/g, \"s\")\n    .replace(/[ğ]/g, \"g\")\n    .replace(/[ç]/g, \"c\")\n    .replace(/[ı]/g, \"i\")\n    .replace(/[ö]/g, \"o\")\n    .replace(/[ü]/g, \"u\")\n    .replace(/[Ş]/g, \"s\")\n    .replace(/[Ğ]/g, \"g\")\n    .replace(/[Ç]/g, \"c\")\n    .replace(/[İ]/g, \"i\")\n    .replace(/[Ö]/g, \"o\")\n    .replace(/[Ü]/g, \"u\");\n\n  // إزالة الامتداد مثل .pdf\n  normName = normName.replace(/\\.[^/.]+$/, \"\");\n\n  // حذف أي رموز غير الأحرف والأرقام والمسافات\n  normName = normName.replace(/[^a-z0-9\\s]/g, \"\");\n\n  // تقسيم إلى كلمات وحذف الكلمات الممنوعة\n  normName = normName\n    .split(/\\s+/)\n    .filter(w => w && !ignoreWords.includes(w))\n    .join(\" \")\n    .trim();\n\n  return {\n    json: {\n      ...item.json,\n      normName\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        -176
+      ],
+      "id": "e7d657d1-6aba-4f28-b625-50018c43681b",
+      "name": "folder normalize"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  // قائمة الأشهر التركية بالأحرف الكبيرة مع دعم الحروف التركية\n  const months = [\n    \"OCAK\", \"ŞUBAT\", \"ŞUBAT\", \"MART\", \"NİSAN\", \"NISAN\", \"MAYIS\", \"HAZİRAN\", \"HAZIRAN\",\n    \"TEMMUZ\", \"AĞUSTOS\", \"AĞUSTOS\", \"EYLÜL\", \"EYLUL\", \"EKİM\", \"EKIM\", \"KASIM\", \"ARALIK\"\n  ];\n\n  // دمج الأشهر في تعبير منتظم (يدعم بعض أخطاء الترميز الشائعة)\n  const monthsRegex = months.join(\"|\");\n\n  // تعبير منتظم لاستخراج اسم الشركة والشهر والسنة ونوع الضريبة وTHK\n  const regex = new RegExp(\n    `^(.+?)\\\\s+(${monthsRegex})\\\\s+(20\\\\d{2})\\\\s+([A-ZÇĞİÖŞÜ]+)(?:\\\\s+THK)?\\\\.pdf$`,\n    'iu'\n  );\n\n  let originalName = item.json.name;\n  let match = originalName.match(regex);\n\n  let companyName = \"\";\n  let month = \"\";\n  let year = \"\";\n  let taxType = \"\";\n\n  if (match) {\n    companyName = match[1].trim();\n    month = match[2].toUpperCase();\n    year = match[3];\n    taxType = match[4].toUpperCase();\n  } else {\n    // fallback: لو لم يتطابق النمط\n    companyName = originalName.replace(/\\.[^/.]+$/, \"\");\n  }\n\n  // هنا الإضافة التي طلبتها:\n  let fileNormName = companyName.toLowerCase();\n\n  return {\n    json: {\n      ...item.json,\n      companyName,\n      month,\n      year,\n      taxType,\n      fileNormName\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        -80
+      ],
+      "id": "cfaac120-b4cb-4ff5-a4f5-7835b1fb7fe2",
+      "name": "file normalize"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1360,
+        0
+      ],
+      "id": "c402b3d4-5d8a-47e3-ab7f-b6e252ab9370",
+      "name": "Merge3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cc1697ab-5f92-45ec-b1d2-cb791e4baad0",
+              "leftValue": "={{ $json.folderId }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        0
+      ],
+      "id": "3b5beb93-0a82-4001-82d0-be3f42dbb8ba",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "move",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.documentId }}",
+          "mode": "id"
+        },
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{$json[\"folderId\"]}}",
+          "mode": "id"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1664,
+        -176
+      ],
+      "id": "b267b6c7-45bd-4ceb-90fe-dd72b0765ce1",
+      "name": "Move file to tax folder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2192,
+        -48
+      ],
+      "id": "90d7b891-d840-473c-81e4-2fa50d42f53f",
+      "name": "Merge4"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  item.json.message = `✅ تم نقل الملف: ${item.json.documentName} الخاص بشركة ${item.json.companyName} إلى الفولدر: ${item.json.folderName}`;\n  return item;\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        -176
+      ],
+      "id": "730ba2d9-8327-4f94-bbed-16fd4f945539",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  if (!item.json.folderId || item.json.folderId === \"\") {\n    item.json.message = `لم يتم نقل الملف ${item.json.documentName} الخاص بشركة ${item.json.companyName} لأنه لا يوجد فولدر`;\n  } else {\n    item.json.message = `✅ تم نقل الملف: ${item.json.documentName} الخاص بشركة ${item.json.companyName} إلى الفولدر: ${item.json.folderName}`;\n  }\n  return item;\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        160
+      ],
+      "id": "a9011816-3a89-4959-a267-6cf84db35955",
+      "name": "Code9"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "id",
+              "field2": "documentId"
+            }
+          ]
+        },
+        "joinMode": "enrichInput1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2048,
+        -176
+      ],
+      "id": "da4b8b60-5c9a-48f5-9e9a-4973eac7d11c",
+      "name": "Merge5"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "Monthly report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1377545429,
+          "mode": "list",
+          "cachedResultName": "Sheet3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=1377545429"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2480,
+        -640
+      ],
+      "id": "763fdeaf-a63e-4bab-b422-fafabdd153e9",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4ce81e60-ccb8-4b9a-8f0a-68dafae6f6a0",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "SUCCESS",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2672,
+        -640
+      ],
+      "id": "069f7df4-2b19-4c19-8ccd-97e6d4da6d40",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "Monthly report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1377545429,
+          "mode": "list",
+          "cachedResultName": "Sheet3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=1377545429"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "documentId": "={{ $json.documentId }}",
+            "documentName": "={{ $json.documentName }}",
+            "companyName": "={{ $json.documentName }}",
+            "message": "={{ $json.message }}",
+            "status": "={{ $json[\"folderId\"] ? \"SUCCESS\" : \"FAILED\" }}",
+            "batchDate": "={{$now.toISODate()}}",
+            "folderName": "{{ $json.folderName }}",
+            "folderId": "={{ $json.folderId }}"
+          },
+          "matchingColumns": [
+            "documentId"
+          ],
+          "schema": [
+            {
+              "id": "batchDate",
+              "displayName": "batchDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "folderName",
+              "displayName": "folderName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "folderId",
+              "displayName": "folderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "documentId",
+              "displayName": "documentId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "documentName",
+              "displayName": "documentName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2288,
+        -176
+      ],
+      "id": "8391d0ff-8998-4ebb-a576-5c57f0f3a4f7",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "Monthly report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 477170178,
+          "mode": "list",
+          "cachedResultName": "tax ",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=477170178"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2304,
+        128
+      ],
+      "id": "6a64c58a-c4ba-4661-9a31-e58ad49ff146",
+      "name": "Get row(s) in sheet1",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "retryOnFail": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2432,
+        -16
+      ],
+      "id": "e429217f-a389-4b2e-8674-31802acfda2b",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "url": "https://infodvnlogcom.kommo.com/api/v4/leads/tags",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization\t",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZmU3OGU5OTE5MzMzODgzN2IyZDRkN2UyYWI3NzE5OTY2YTQ2OTQ1YTg3NDRhYmM2ZGQxNTZiZmNiNWUxMDA1MjQxYTY2ZTM3YzkxNTMwIn0.eyJhdWQiOiI5Y2E0M2JkMS00MWQzLTQxMDktOTdkNi1kM2U4Mzg0ZGNmZmUiLCJqdGkiOiI1ZGZlNzhlOTkxOTMzMzg4MzdiMmQ0ZDdlMmFiNzcxOTk2NmE0Njk0NWE4NzQ0YWJjNmRkMTU2YmZjYjVlMTAwNTI0MWE2NmUzN2M5MTUzMCIsImlhdCI6MTc1MjM1ODMyNywibmJmIjoxNzUyMzU4MzI3LCJleHAiOjE3OTIwMjI0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiMDE5NTYyZmQtZGI5NC00MzhhLWExMDktNGMxMWY2YzJkMzE4IiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RruKfCExL1HlNEFvaBF_p3IQXoFJ26vgayy9vtqf4iCIJB9J2A3RNYIBOFQ_OnJAPL-3Hw8rCKIC5LswBkwur-qd22otXURZmLQTF3fvzHQtyf1EF20qw6szKau_8JoqRhfq9PYSaeUv8AVMkaP_wH23fi9AyCMyO7LRhl-ImzVnUjfryAwGhQzSK-XKd1SbDqh_y2s8HYE1S38VOzbvNINffZNHQwv5EvzpaWi8DMf9WVpzbOVzZ8WUaPk80l2PnNSBvro5mLvPwV2HUdfbalz1ccgsaFsomutQC8Zgda99CUKVQ4n6I7x2gn4nc6VuneF9obc1JX53RiwrkREmNA"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3408,
+        384
+      ],
+      "id": "56699e44-7266-4ad3-8e2c-e4e259e63d6e",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// جمع كل الـ items اللي داخلة للـ node\nconst allItems = items.map(item => item.json);\n\n// استخدم Map لإزالة التكرارات\nconst uniqueMap = new Map();\n\nfor (const item of allItems) {\n  // خلي الـ id هو المفتاح عشان لو تكرر يتشال\n  if (!uniqueMap.has(item.id)) {\n    uniqueMap.set(item.id, item);\n  }\n}\n\n// حول الـ Map إلى Array\nconst uniqueItems = Array.from(uniqueMap.values());\n\n// رجعهم في صورة items منفصلة عشان n8n يعرضهم كويس\nreturn uniqueItems.map(item => ({ json: item }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3824,
+        368
+      ],
+      "id": "0191c69c-4a11-4ee6-9e98-4a04727d82cd",
+      "name": "Code6"
+    },
+    {
+      "parameters": {
+        "jsCode": "// جهز مصفوفة لتجميع كل التاجز\nlet allTags = [];\n\n// لو عندك Array فيه أكثر من عنصر (زي اللي بعتّه)\n// هنلف عليهم كلهم\nfor (const item of items) {\n  // الـ data جواها JSON كنص.. لازم نفكه\n  const parsedData = JSON.parse(item.json.data);\n\n  // نوصل للـ tags\n  const tags = parsedData._embedded?.tags;\n\n  if (tags && Array.isArray(tags)) {\n    for (const tag of tags) {\n      allTags.push({\n        json: {\n          id: tag.id,\n          name: tag.name\n        }\n      });\n    }\n  }\n}\n\nreturn allTags;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3072,
+        432
+      ],
+      "id": "732559e3-3760-49b5-ab56-651df35ae3ae",
+      "name": "Code10"
+    },
+    {
+      "parameters": {
+        "url": "https://infodvnlogcom.kommo.com/api/v4/users",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization\t",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZmU3OGU5OTE5MzMzODgzN2IyZDRkN2UyYWI3NzE5OTY2YTQ2OTQ1YTg3NDRhYmM2ZGQxNTZiZmNiNWUxMDA1MjQxYTY2ZTM3YzkxNTMwIn0.eyJhdWQiOiI5Y2E0M2JkMS00MWQzLTQxMDktOTdkNi1kM2U4Mzg0ZGNmZmUiLCJqdGkiOiI1ZGZlNzhlOTkxOTMzMzg4MzdiMmQ0ZDdlMmFiNzcxOTk2NmE0Njk0NWE4NzQ0YWJjNmRkMTU2YmZjYjVlMTAwNTI0MWE2NmUzN2M5MTUzMCIsImlhdCI6MTc1MjM1ODMyNywibmJmIjoxNzUyMzU4MzI3LCJleHAiOjE3OTIwMjI0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiMDE5NTYyZmQtZGI5NC00MzhhLWExMDktNGMxMWY2YzJkMzE4IiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RruKfCExL1HlNEFvaBF_p3IQXoFJ26vgayy9vtqf4iCIJB9J2A3RNYIBOFQ_OnJAPL-3Hw8rCKIC5LswBkwur-qd22otXURZmLQTF3fvzHQtyf1EF20qw6szKau_8JoqRhfq9PYSaeUv8AVMkaP_wH23fi9AyCMyO7LRhl-ImzVnUjfryAwGhQzSK-XKd1SbDqh_y2s8HYE1S38VOzbvNINffZNHQwv5EvzpaWi8DMf9WVpzbOVzZ8WUaPk80l2PnNSBvro5mLvPwV2HUdfbalz1ccgsaFsomutQC8Zgda99CUKVQ4n6I7x2gn4nc6VuneF9obc1JX53RiwrkREmNA"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2752,
+        432
+      ],
+      "id": "a9180727-a658-42d2-b341-310eba2ac62d",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3312,
+        32
+      ],
+      "id": "84263267-2240-4d2a-a682-c1ad69a80cdc",
+      "name": "Merge6"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4224,
+        0
+      ],
+      "id": "e12cf665-2038-464c-b3bf-bb9ac27f2537",
+      "name": "Merge7"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ادخل على الـ JSON string اللي جاي من HTTP Response\nconst rawData = $input.item.json.data;\nconst parsed = JSON.parse(rawData);\n\n// استخرج الـ leads\nconst leads = parsed._embedded.leads;\n\n// أرجعهم كلهم كـ عناصر منفصلة\nreturn leads.map(lead => ({\n  json: {\n    lead_id: lead.id\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5424,
+        -304
+      ],
+      "id": "8c087fc8-35aa-467b-a5ef-6f2d2149d544",
+      "name": "Code19"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        5424,
+        64
+      ],
+      "id": "71c9e58b-7692-473b-a481-b034d8708c8f",
+      "name": "Merge8"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// افصل العناصر إلى مجموعتين\nconst shortLeads = [];\nconst detailedLeads = [];\n\nfor (const item of items) {\n  const obj = item.json;\n\n  if (\n    obj.hasOwnProperty('lead_id') &&\n    Object.keys(obj).length === 1\n  ) {\n    // العنصر اللي فيه lead_id بس\n    shortLeads.push(obj);\n  } else {\n    // العنصر اللي فيه بيانات كاملة\n    detailedLeads.push(obj);\n  }\n}\n\n// اعمل mapping من lead_id → object\nconst detailedMap = {};\nfor (const lead of detailedLeads) {\n  detailedMap[lead.lead_id] = lead;\n}\n\n// جهز الناتج النهائي\nconst output = [];\n\nfor (const short of shortLeads) {\n  const leadId = short.lead_id;\n\n  if (detailedMap[leadId]) {\n    output.push({\n      json: {\n        ...short,\n        ...detailedMap[leadId]\n      }\n    });\n  } else {\n    // لو مفيش بيانات تفصيلية\n    output.push({\n      json: short\n    });\n  }\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5760,
+        240
+      ],
+      "id": "52ca7776-5b2d-432c-95f4-2be264f8e098",
+      "name": "Code20"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nfor (const item of items) {\n  const data = item.json;\n\n  output.push({\n    json: {\n      id: data.lead_id,\n      name: data.name,\n      pipeline_id: data.pipeline_id,\n      status_id: data.status_id,\n      responsible_user_id: data.responsible_user_id,\n      _embedded: {\n        tags: data.tags.map(tag => ({ id: tag.id })),\n        contacts: data.contacts.map(contact => ({\n          first_name: contact.first_name,\n          custom_fields_values: contact.custom_fields_values || []\n        })),\n        companies: data.companies.map(company => ({\n          name: company.name\n        }))\n      }\n    }\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5984,
+        240
+      ],
+      "id": "4e189712-28cf-480f-b614-0feefffa84fc",
+      "name": "Code21"
+    },
+    {
+      "parameters": {
+        "jsCode": "// اجمع كل العناصر اللي جاية من النود اللي قبلها\nconst items = $input.all();\n\n// استخرج الـ json من كل عنصر\nconst leadsArray = items.map(item => item.json);\n\n// رجع object فيه key اسمه data\nreturn [\n  {\n    json: {\n      data: leadsArray\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6144,
+        240
+      ],
+      "id": "5192ffda-505a-4754-b5ae-0427b1d2db85",
+      "name": "Code22"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZmU3OGU5OTE5MzMzODgzN2IyZDRkN2UyYWI3NzE5OTY2YTQ2OTQ1YTg3NDRhYmM2ZGQxNTZiZmNiNWUxMDA1MjQxYTY2ZTM3YzkxNTMwIn0.eyJhdWQiOiI5Y2E0M2JkMS00MWQzLTQxMDktOTdkNi1kM2U4Mzg0ZGNmZmUiLCJqdGkiOiI1ZGZlNzhlOTkxOTMzMzg4MzdiMmQ0ZDdlMmFiNzcxOTk2NmE0Njk0NWE4NzQ0YWJjNmRkMTU2YmZjYjVlMTAwNTI0MWE2NmUzN2M5MTUzMCIsImlhdCI6MTc1MjM1ODMyNywibmJmIjoxNzUyMzU4MzI3LCJleHAiOjE3OTIwMjI0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiMDE5NTYyZmQtZGI5NC00MzhhLWExMDktNGMxMWY2YzJkMzE4IiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RruKfCExL1HlNEFvaBF_p3IQXoFJ26vgayy9vtqf4iCIJB9J2A3RNYIBOFQ_OnJAPL-3Hw8rCKIC5LswBkwur-qd22otXURZmLQTF3fvzHQtyf1EF20qw6szKau_8JoqRhfq9PYSaeUv8AVMkaP_wH23fi9AyCMyO7LRhl-ImzVnUjfryAwGhQzSK-XKd1SbDqh_y2s8HYE1S38VOzbvNINffZNHQwv5EvzpaWi8DMf9WVpzbOVzZ8WUaPk80l2PnNSBvro5mLvPwV2HUdfbalz1ccgsaFsomutQC8Zgda99CUKVQ4n6I7x2gn4nc6VuneF9obc1JX53RiwrkREmNA"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.data}}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6560,
+        160
+      ],
+      "id": "18fc65ef-c57e-425f-baba-3427aff43133",
+      "name": "HTTP Request8"
+    },
+    {
+      "parameters": {
+        "jsCode": "// لو البيانات جايالك جوا عنصر واحد اسمه data\n// زي: [ { data: [ {...}, {...} ] } ]\n\nconst items = $input.all();\n\nlet leads = [];\n\n// لو البيانات جوا عنصر واحد اسمه data\nif (items[0].json.data) {\n  leads = items[0].json.data;\n} else {\n  // أو لو كل lead عبارة عن عنصر لوحده\n  leads = items.map(item => item.json);\n}\n\n// بنجهز Array leads بالشكل الصح\nconst formattedLeads = leads.map(data => {\n  return {\n    id: data.id,\n    name: data.name,\n    pipeline_id: data.pipeline_id,\n    status_id: data.status_id,\n    responsible_user_id: data.responsible_user_id,\n    _embedded: {\n      tags: (data._embedded?.tags || []).map(tag => ({ id: tag.id })),\n      contacts: (data._embedded?.contacts || []).map(contact => ({ id: contact.id })),\n      companies: (data._embedded?.companies || []).map(company => ({ id: company.id }))\n    }\n  }\n});\n\n// لازم نرجعه جوا json object واحد\nreturn [{ json: { update: formattedLeads } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6320,
+        192
+      ],
+      "id": "40f5cd12-2895-405e-bf59-ae6c3c77e2fe",
+      "name": "Code23"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZmU3OGU5OTE5MzMzODgzN2IyZDRkN2UyYWI3NzE5OTY2YTQ2OTQ1YTg3NDRhYmM2ZGQxNTZiZmNiNWUxMDA1MjQxYTY2ZTM3YzkxNTMwIn0.eyJhdWQiOiI5Y2E0M2JkMS00MWQzLTQxMDktOTdkNi1kM2U4Mzg0ZGNmZmUiLCJqdGkiOiI1ZGZlNzhlOTkxOTMzMzg4MzdiMmQ0ZDdlMmFiNzcxOTk2NmE0Njk0NWE4NzQ0YWJjNmRkMTU2YmZjYjVlMTAwNTI0MWE2NmUzN2M5MTUzMCIsImlhdCI6MTc1MjM1ODMyNywibmJmIjoxNzUyMzU4MzI3LCJleHAiOjE3OTIwMjI0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiMDE5NTYyZmQtZGI5NC00MzhhLWExMDktNGMxMWY2YzJkMzE4IiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RruKfCExL1HlNEFvaBF_p3IQXoFJ26vgayy9vtqf4iCIJB9J2A3RNYIBOFQ_OnJAPL-3Hw8rCKIC5LswBkwur-qd22otXURZmLQTF3fvzHQtyf1EF20qw6szKau_8JoqRhfq9PYSaeUv8AVMkaP_wH23fi9AyCMyO7LRhl-ImzVnUjfryAwGhQzSK-XKd1SbDqh_y2s8HYE1S38VOzbvNINffZNHQwv5EvzpaWi8DMf9WVpzbOVzZ8WUaPk80l2PnNSBvro5mLvPwV2HUdfbalz1ccgsaFsomutQC8Zgda99CUKVQ4n6I7x2gn4nc6VuneF9obc1JX53RiwrkREmNA"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2864,
+        -304
+      ],
+      "id": "3773dd1f-3a5d-4b7c-9d31-070dab232035",
+      "name": "LED registration"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZmU3OGU5OTE5MzMzODgzN2IyZDRkN2UyYWI3NzE5OTY2YTQ2OTQ1YTg3NDRhYmM2ZGQxNTZiZmNiNWUxMDA1MjQxYTY2ZTM3YzkxNTMwIn0.eyJhdWQiOiI5Y2E0M2JkMS00MWQzLTQxMDktOTdkNi1kM2U4Mzg0ZGNmZmUiLCJqdGkiOiI1ZGZlNzhlOTkxOTMzMzg4MzdiMmQ0ZDdlMmFiNzcxOTk2NmE0Njk0NWE4NzQ0YWJjNmRkMTU2YmZjYjVlMTAwNTI0MWE2NmUzN2M5MTUzMCIsImlhdCI6MTc1MjM1ODMyNywibmJmIjoxNzUyMzU4MzI3LCJleHAiOjE3OTIwMjI0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiMDE5NTYyZmQtZGI5NC00MzhhLWExMDktNGMxMWY2YzJkMzE4IiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RruKfCExL1HlNEFvaBF_p3IQXoFJ26vgayy9vtqf4iCIJB9J2A3RNYIBOFQ_OnJAPL-3Hw8rCKIC5LswBkwur-qd22otXURZmLQTF3fvzHQtyf1EF20qw6szKau_8JoqRhfq9PYSaeUv8AVMkaP_wH23fi9AyCMyO7LRhl-ImzVnUjfryAwGhQzSK-XKd1SbDqh_y2s8HYE1S38VOzbvNINffZNHQwv5EvzpaWi8DMf9WVpzbOVzZ8WUaPk80l2PnNSBvro5mLvPwV2HUdfbalz1ccgsaFsomutQC8Zgda99CUKVQ4n6I7x2gn4nc6VuneF9obc1JX53RiwrkREmNA"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json[\"data\"]) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3792,
+        -304
+      ],
+      "id": "3b08c738-ff50-4186-93c4-4bab8723be7b",
+      "name": "LED Update Stage Pipe Line"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      payload: leadsToUpdate\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4704,
+        -688
+      ],
+      "id": "aef5cb84-abb3-493b-8cff-393a92e35b6a",
+      "name": "Code25"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ثوابت الأرقام التي تحتاجها للربط\nconst pipelineId = 10802739;\nconst statusId = 88800919;\nconst tag = { id: 105692, name: \"MonthlyTax\" };\nconst responsibleUserId = 13225819;\n\n// أرقام الحقول المخصصة للهاتف والإيميل من كومو CRM\nconst PHONE_FIELD_ID = 469442;\nconst EMAIL_FIELD_ID = 469444;\n\n// هنا نأخذ كل ليد من items مباشرة\nconst leads = $input.all().map(i => i.json);\n\nconst transformedLeads = leads.map(lead => {\n  // استخراج البيانات من الحقول الصحيحة مع إزالة المسافات الزائدة\n  const companyName = (lead.Company || '').trim();\n  const contactName = (lead.name || '').trim();\n  const phoneNumber = (lead.tel || '').trim();\n  const emailAddress = (lead['Work email'] || '').trim(); // لأن اسم الحقل فيه مسافة\n\n  // بناء الكائن بالشكل الذي تتوقعه كومو CRM\n  return {\n    name: companyName,                   // اسم الـ lead (الصفقة) → من Company\n    pipelineId,\n    statusId,\n    tags: [tag],\n    responsibleUserId,\n    contact: {\n      first_name: contactName,           // اسم الشخص\n      custom_fields_values: [\n        ...(phoneNumber ? [{\n          field_id: PHONE_FIELD_ID,\n          values: [{ value: phoneNumber }]\n        }] : []),\n        ...(emailAddress ? [{\n          field_id: EMAIL_FIELD_ID,\n          values: [{ value: emailAddress }]\n        }] : [])\n      ]\n    }\n  };\n});\n\n// هذا الجزء لإخراج كل عنصر كـ item منفصل من الـ Function Node\nreturn transformedLeads.map(item => ({ json: item }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2624,
+        -16
+      ],
+      "id": "35234024-de88-49bd-b7d3-30e0bcb74027",
+      "name": "Prepare Kommo Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalize(str) {\n  return str\n    ?.toUpperCase()\n    ?.normalize(\"NFD\")\n    ?.replace(/[\\u0300-\\u036f]/g, \"\") // إزالة التشكيل\n    ?.trim();\n}\n\n// تقسيم الـ items\nconst files = items.filter(i => i.json.documentId && i.json.message); // ملفات ومعاها رسالة\nconst sheet = items.filter(i => i.json.row_number); // بيانات الشيت\n\nconst results = [];\n\nfor (const row of sheet) {\n  const company = normalize(row.json.company_name || row.json.companyName);\n  if (!company) continue;\n\n  // البحث عن ملف مطابق فيه رسالة\n  const match = files.find(file => {\n    const docName = normalize(file.json.documentName);\n    const compName = normalize(file.json.companyName);\n    return (\n      (docName && docName.includes(company)) ||\n      (compName && compName.includes(company))\n    );\n  });\n\n  // فقط لو وجد ملف ومعاه رسالة نضيفه\n  if (match) {\n    results.push({\n      json: {\n        ...row.json,\n        documentId: match.json.documentId,\n        documentName: match.json.documentName,\n        folderId: match.json.folderId,\n        message: match.json.message,\n        status: match.json.status,\n        matched: true\n      }\n    });\n  }\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        -240
+      ],
+      "id": "f09433f6-9bcf-4f47-b46f-77b17fa7e554",
+      "name": "matching"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input: Array of objects like [{ add: [...] }, {...}]\n\nconst result = [];\n\nfor (const item of items) {\n  const addData = item.json.add[0];\n\n  result.push({\n    json: {\n      index: addData.index,\n      pipeline_id: addData.pipeline_id,\n      responsible_user_id: addData.responsible_user_id,\n      status_id: addData.status_id,\n      tags: addData.tags,\n      tags_names: addData.tags_names,\n      tags_ids: addData.tags_ids,\n      contacts: addData._embedded.contacts,\n      company: addData.company,\n      request_id: addData.request_id[0]\n    }\n  });\n}\n\nreturn result;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2864,
+        0
+      ],
+      "id": "74b4ebfd-c856-4722-93af-d11ebe342db6",
+      "name": "index"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input: HTTP Request Output\n// Format: Array of objects with \"data\" key containing JSON string\n\n// Initialize empty array to store parsed leads\nconst output = [];\n\nfor (let i = 0; i < items.length; i++) {\n  // Get the data string\n  const dataStr = items[i].json.data;\n\n  // Parse JSON string\n  const parsed = JSON.parse(dataStr);\n\n  // Get lead id from _embedded.leads[0].id\n  const leadId = parsed._embedded.leads[0].id;\n\n  // Prepare a new object with the index matching the order\n  output.push({\n    json: {\n      index: i,           // This matches the order\n      lead_id: leadId\n    }\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2992,
+        -160
+      ],
+      "id": "534e46c1-098c-4b18-933f-34c34001d8a1",
+      "name": "Trans registration"
+    },
+    {
+      "parameters": {
+        "jsCode": "// هنجهز Array جديدة عشان نضيف فيها الـ JSON المفكوك\nconst output = [];\n\nfor (const item of items) {\n  // ناخد الـ string من key اسمه \"data\"\n  const dataStr = item.json.data;\n\n  // نفك الـ JSON string ونحوله إلى object\n  const parsed = JSON.parse(dataStr);\n\n  // نضيف الـ object المفكوك في الـ output\n  output.push({\n    json: parsed\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3184,
+        -160
+      ],
+      "id": "52fafc42-716f-4114-a7f3-484a3c0fc818",
+      "name": "Trans Reverse"
+    },
+    {
+      "parameters": {
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads/{{ $json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZmU3OGU5OTE5MzMzODgzN2IyZDRkN2UyYWI3NzE5OTY2YTQ2OTQ1YTg3NDRhYmM2ZGQxNTZiZmNiNWUxMDA1MjQxYTY2ZTM3YzkxNTMwIn0.eyJhdWQiOiI5Y2E0M2JkMS00MWQzLTQxMDktOTdkNi1kM2U4Mzg0ZGNmZmUiLCJqdGkiOiI1ZGZlNzhlOTkxOTMzMzg4MzdiMmQ0ZDdlMmFiNzcxOTk2NmE0Njk0NWE4NzQ0YWJjNmRkMTU2YmZjYjVlMTAwNTI0MWE2NmUzN2M5MTUzMCIsImlhdCI6MTc1MjM1ODMyNywibmJmIjoxNzUyMzU4MzI3LCJleHAiOjE3OTIwMjI0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiMDE5NTYyZmQtZGI5NC00MzhhLWExMDktNGMxMWY2YzJkMzE4IiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RruKfCExL1HlNEFvaBF_p3IQXoFJ26vgayy9vtqf4iCIJB9J2A3RNYIBOFQ_OnJAPL-3Hw8rCKIC5LswBkwur-qd22otXURZmLQTF3fvzHQtyf1EF20qw6szKau_8JoqRhfq9PYSaeUv8AVMkaP_wH23fi9AyCMyO7LRhl-ImzVnUjfryAwGhQzSK-XKd1SbDqh_y2s8HYE1S38VOzbvNINffZNHQwv5EvzpaWi8DMf9WVpzbOVzZ8WUaPk80l2PnNSBvro5mLvPwV2HUdfbalz1ccgsaFsomutQC8Zgda99CUKVQ4n6I7x2gn4nc6VuneF9obc1JX53RiwrkREmNA"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3984,
+        -304
+      ],
+      "id": "e1df0bd2-d9b0-4c02-a966-e7f8c4001dcf",
+      "name": "update Reverse Fetch 2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const json = items[i].json;\n\n  const tagsArray = json.tags || [];\n  const tags_names = tagsArray.map(tag => tag.name);\n  const tags_ids = tagsArray.map(tag => tag.id);\n\n  const embeddedContacts = [\n    {\n      first_name: json.contact.first_name,\n      custom_fields_values: json.contact.custom_fields_values || []\n    }\n  ];\n\n  // لو عندك company_id رجعه هنا\n  const companyId = json.company_id || null;\n  const companyName = json.name || null;\n\n  let company = null;\n\n  if (companyId !== null) {\n    company = {\n      id: companyId,\n      name: companyName\n    };\n  } else if (companyName !== null) {\n    // لو لسه ما عندكش ID، ابعته object فاضي أو متبعتوش خالص\n    company = {\n      name: companyName\n    };\n  }\n\n  const lead = {\n    index: i,\n    pipeline_id: json.pipelineId,\n    responsible_user_id: json.responsibleUserId,\n    status_id: json.statusId,\n    tags: json.tags || [],\n    tags_names: tags_names,\n    tags_ids: tags_ids,\n    _embedded: {\n      contacts: embeddedContacts\n    },\n    company: company,\n    id: null,\n    contact_id: null,\n    company_id: null,\n    request_id: [`company-${Date.now()}-${i}`]\n  };\n\n  output.push({\n    json: {\n      add: [lead]\n    }\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2752,
+        -160
+      ],
+      "id": "cd6fe319-782d-4c6a-93f8-39d06311bd6e",
+      "name": "Create Kommo Body"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = [];\n\nfor (const item of items) {\n  const lead = item.json;\n\n  output.push({\n    id: lead.lead_id,\n    name: lead.lead_name,\n    pipeline_id: lead.pipeline_id_new,\n    status_id: lead.status_id_new,\n    responsible_user_id: lead.responsible_user_id,\n    tags: lead.tags || [],\n    contacts: lead.contacts || [],\n    companies: lead.company ? [ { name: lead.company.name } ] : []\n  });\n}\n\nreturn output.map(el => ({ json: el }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3504,
+        0
+      ],
+      "id": "29d86796-938d-4184-b369-e2562a371fea",
+      "name": "Prepare Kommo update"
+    },
+    {
+      "parameters": {
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads/{{ $json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZmU3OGU5OTE5MzMzODgzN2IyZDRkN2UyYWI3NzE5OTY2YTQ2OTQ1YTg3NDRhYmM2ZGQxNTZiZmNiNWUxMDA1MjQxYTY2ZTM3YzkxNTMwIn0.eyJhdWQiOiI5Y2E0M2JkMS00MWQzLTQxMDktOTdkNi1kM2U4Mzg0ZGNmZmUiLCJqdGkiOiI1ZGZlNzhlOTkxOTMzMzg4MzdiMmQ0ZDdlMmFiNzcxOTk2NmE0Njk0NWE4NzQ0YWJjNmRkMTU2YmZjYjVlMTAwNTI0MWE2NmUzN2M5MTUzMCIsImlhdCI6MTc1MjM1ODMyNywibmJmIjoxNzUyMzU4MzI3LCJleHAiOjE3OTIwMjI0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiMDE5NTYyZmQtZGI5NC00MzhhLWExMDktNGMxMWY2YzJkMzE4IiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RruKfCExL1HlNEFvaBF_p3IQXoFJ26vgayy9vtqf4iCIJB9J2A3RNYIBOFQ_OnJAPL-3Hw8rCKIC5LswBkwur-qd22otXURZmLQTF3fvzHQtyf1EF20qw6szKau_8JoqRhfq9PYSaeUv8AVMkaP_wH23fi9AyCMyO7LRhl-ImzVnUjfryAwGhQzSK-XKd1SbDqh_y2s8HYE1S38VOzbvNINffZNHQwv5EvzpaWi8DMf9WVpzbOVzZ8WUaPk80l2PnNSBvro5mLvPwV2HUdfbalz1ccgsaFsomutQC8Zgda99CUKVQ4n6I7x2gn4nc6VuneF9obc1JX53RiwrkREmNA"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3088,
+        -304
+      ],
+      "id": "5b55ca21-7f84-46b4-8f39-58746ba78447",
+      "name": "Add Reverse Fetch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// هنقسم الـ items إلى قسمين:\n// قسم leads الجاي من GET\n// وقسم الـ leads الجاهزة اللي أنت محضرها\n\nconst leadsFromGET = [];\nconst preparedLeads = [];\n\n// نفصل المجموعتين عن بعض\nfor (const item of items) {\n  if (item.json.hasOwnProperty(\"id\") && !item.json.hasOwnProperty(\"index\")) {\n    leadsFromGET.push(item.json);\n  } else if (item.json.hasOwnProperty(\"index\")) {\n    preparedLeads.push(item.json);\n  }\n}\n\n// نجهز Map يربط الـ leads من GET بـ index\nconst leadsMap = {};\n\n// نفترض إن ترتيبهم في الـ array هو اللي بيحدد الـ index\nfor (let i = 0; i < leadsFromGET.length; i++) {\n  leadsMap[i] = leadsFromGET[i];\n}\n\n// نبدأ الماتشينج\nconst output = [];\n\nfor (const lead of preparedLeads) {\n  const idx = lead.index;\n  const leadFromGET = leadsMap[idx] || {};\n\n  output.push({\n    json: {\n      index: idx,\n      lead_id: leadFromGET.id || null,\n      lead_name: leadFromGET.name || null,\n      pipeline_id_from_get: leadFromGET.pipeline_id || null,\n      status_id_from_get: leadFromGET.status_id || null,\n      pipeline_id_new: lead.pipeline_id,\n      status_id_new: lead.status_id,\n      responsible_user_id: lead.responsible_user_id,\n      tags: lead.tags,\n      contacts: lead.contacts,\n      company: lead.company,\n      request_id: lead.request_id\n    }\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3408,
+        -208
+      ],
+      "id": "e4b77008-5a38-4219-8b9f-d8110c586877",
+      "name": "matching to update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ادخل على الـ JSON string اللي جاي من HTTP Response\nconst rawData = $input.item.json.data;\nconst parsed = JSON.parse(rawData);\n\n// استخرج الـ leads\nconst leads = parsed._embedded.leads;\n\n// أرجعهم كلهم كـ عناصر منفصلة\nreturn leads.map(lead => ({\n  json: {\n    lead_id: lead.id\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3888,
+        -144
+      ],
+      "id": "0088ae3d-090f-4ff3-861a-251f9133edfc",
+      "name": "Trans update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// هنجهز Array جديدة عشان نضيف فيها الـ JSON المفكوك\nconst output = [];\n\nfor (const item of items) {\n  // ناخد الـ string من key اسمه \"data\"\n  const dataStr = item.json.data;\n\n  // نفك الـ JSON string ونحوله إلى object\n  const parsed = JSON.parse(dataStr);\n\n  // نضيف الـ object المفكوك في الـ output\n  output.push({\n    json: parsed\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        -144
+      ],
+      "id": "71ba3c40-d663-4aa7-afc1-377cbaf2137f",
+      "name": "Trans Reverse  update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// هنقسم الـ items إلى مجموعتين:\n// leadsFromGET → leads اللي جت من Kommo\n// preparedLeads → leads اللي حضرتها انت للتحديث\n\nconst leadsFromGET = [];\nconst preparedLeads = [];\n\n// نفصل المجموعتين\nfor (const item of items) {\n  const json = item.json;\n  \n  if (json.hasOwnProperty(\"_embedded\")) {\n    // ده GET\n    leadsFromGET.push(json);\n  } else if (json.hasOwnProperty(\"contacts\")) {\n    // ده Prepared Lead\n    preparedLeads.push(json);\n  }\n}\n\n// نحط leadsFromGET في Map بالـ id\nconst leadsMap = {};\nfor (const lead of leadsFromGET) {\n  leadsMap[lead.id] = lead;\n}\n\nconst output = [];\n\nfor (let i = 0; i < preparedLeads.length; i++) {\n  const preparedLead = preparedLeads[i];\n  const id = preparedLead.id;\n  const leadFromGET = leadsMap[id] || {};\n\n  output.push({\n    json: {\n      index: i,\n      lead_id: id,\n      lead_name: leadFromGET.name || preparedLead.name || null,\n      pipeline_id_from_get: leadFromGET.pipeline_id || null,\n      status_id_from_get: leadFromGET.status_id || null,\n      pipeline_id_new: preparedLead.pipeline_id,\n      status_id_new: preparedLead.status_id,\n      responsible_user_id: preparedLead.responsible_user_id,\n      tags: preparedLead.tags || [],\n      contacts: preparedLead.contacts || [],\n      company: (preparedLead.companies && preparedLead.companies.length > 0) \n                ? preparedLead.companies[0] \n                : null,\n      request_id: `company-${leadFromGET.created_at || Date.now()}-${i}`\n    }\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4352,
+        -144
+      ],
+      "id": "b3984e10-a2bf-4540-b3e3-e9a1a5538697",
+      "name": "matching 2.update"
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = [];\n\nfor (const item of items) {\n  const lead = item.json;\n\n  payload.push({\n    id: lead.id,\n    name: lead.name,\n    pipeline_id: lead.pipeline_id,\n    status_id: lead.status_id,\n    responsible_user_id: lead.responsible_user_id,\n    _embedded: {\n      tags: lead.tags.map(tag => ({\n        id: tag.id\n      }))\n    }\n  });\n}\n\nreturn [\n  {\n    json: {\n      data: payload\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        -144
+      ],
+      "id": "c6b163ca-2cb0-4183-b16c-a6808cbcc198",
+      "name": "Create Kommo Update Body"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZmU3OGU5OTE5MzMzODgzN2IyZDRkN2UyYWI3NzE5OTY2YTQ2OTQ1YTg3NDRhYmM2ZGQxNTZiZmNiNWUxMDA1MjQxYTY2ZTM3YzkxNTMwIn0.eyJhdWQiOiI5Y2E0M2JkMS00MWQzLTQxMDktOTdkNi1kM2U4Mzg0ZGNmZmUiLCJqdGkiOiI1ZGZlNzhlOTkxOTMzMzg4MzdiMmQ0ZDdlMmFiNzcxOTk2NmE0Njk0NWE4NzQ0YWJjNmRkMTU2YmZjYjVlMTAwNTI0MWE2NmUzN2M5MTUzMCIsImlhdCI6MTc1MjM1ODMyNywibmJmIjoxNzUyMzU4MzI3LCJleHAiOjE3OTIwMjI0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiMDE5NTYyZmQtZGI5NC00MzhhLWExMDktNGMxMWY2YzJkMzE4IiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RruKfCExL1HlNEFvaBF_p3IQXoFJ26vgayy9vtqf4iCIJB9J2A3RNYIBOFQ_OnJAPL-3Hw8rCKIC5LswBkwur-qd22otXURZmLQTF3fvzHQtyf1EF20qw6szKau_8JoqRhfq9PYSaeUv8AVMkaP_wH23fi9AyCMyO7LRhl-ImzVnUjfryAwGhQzSK-XKd1SbDqh_y2s8HYE1S38VOzbvNINffZNHQwv5EvzpaWi8DMf9WVpzbOVzZ8WUaPk80l2PnNSBvro5mLvPwV2HUdfbalz1ccgsaFsomutQC8Zgda99CUKVQ4n6I7x2gn4nc6VuneF9obc1JX53RiwrkREmNA"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json[\"payload\"]) }}\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4768,
+        -320
+      ],
+      "id": "fe90e196-cb24-420d-afb3-2a407ad2ad6b",
+      "name": "LED Update mane .tel . email"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = [];\n\nfor (const item of items) {\n  const lead = item.json;\n\n  const contact = lead.contacts && lead.contacts[0] ? lead.contacts[0] : null;\n  const company = lead.company || null;\n\n  let firstName = null;\n  let email = null;\n  let phone = null;\n  let contactCustomFields = [];\n\n  if (contact) {\n    firstName = contact.first_name || null;\n\n    if (contact.custom_fields_values && contact.custom_fields_values.length > 0) {\n      for (const field of contact.custom_fields_values) {\n        if (field.field_id === 469442) {\n          phone = field.values[0].value;\n        } else if (field.field_id === 469444) {\n          email = field.values[0].value;\n        } else {\n          contactCustomFields.push(field);\n        }\n      }\n    }\n  }\n\n  const payload = {\n    id: lead.lead_id,\n    name: lead.lead_name,\n    pipeline_id: lead.pipeline_id_new,\n    status_id: lead.status_id_new,\n    responsible_user_id: lead.responsible_user_id,\n    _embedded: {}\n  };\n\n  if (lead.tags && lead.tags.length > 0) {\n    payload._embedded.tags = lead.tags.map(tag => ({\n      id: tag.id\n    }));\n  }\n\n  if (firstName || phone || email || contactCustomFields.length > 0) {\n    payload._embedded.contacts = [\n      {\n        first_name: firstName || undefined,\n        custom_fields_values: []\n      }\n    ];\n\n    if (phone) {\n      payload._embedded.contacts[0].custom_fields_values.push({\n        field_id: 469442,\n        values: [{ value: phone }]\n      });\n    }\n\n    if (email) {\n      payload._embedded.contacts[0].custom_fields_values.push({\n        field_id: 469444,\n        values: [{ value: email }]\n      });\n    }\n\n    if (contactCustomFields.length > 0) {\n      payload._embedded.contacts[0].custom_fields_values.push(...contactCustomFields);\n    }\n  }\n\n  if (company) {\n    payload._embedded.companies = [\n      {\n        name: company.name\n      }\n    ];\n  }\n\n  output.push({\n    json: payload\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4464,
+        32
+      ],
+      "id": "0e4f3e97-8c1b-40e3-925c-56a410eb52a2",
+      "name": "Create Kommo 2. Update"
+    },
+    {
+      "parameters": {
+        "jsCode": "const leadsToUpdate = [];\n\nfor (const item of items) {\n  const lead = item.json;\n\n  const payload = {\n    id: lead.id,\n    name: lead.name,\n    pipeline_id: lead.pipeline_id,\n    status_id: lead.status_id,\n    responsible_user_id: lead.responsible_user_id,\n    _embedded: {}\n  };\n\n  // إضافة التاجز لو موجودة\n  if (\n    lead._embedded &&\n    lead._embedded.tags &&\n    lead._embedded.tags.length > 0\n  ) {\n    payload._embedded.tags = lead._embedded.tags.map(tag => ({\n      id: tag.id\n    }));\n  }\n\n  // إضافة IDs للـ contacts لو موجود\n  if (\n    lead._embedded &&\n    lead._embedded.contacts &&\n    lead._embedded.contacts.length > 0 &&\n    lead._embedded.contacts[0].id\n  ) {\n    payload._embedded.contacts = [\n      {\n        id: lead._embedded.contacts[0].id\n      }\n    ];\n  }\n\n  // إضافة IDs للـ companies لو موجود\n  if (\n    lead._embedded &&\n    lead._embedded.companies &&\n    lead._embedded.companies.length > 0 &&\n    lead._embedded.companies[0].id\n  ) {\n    payload._embedded.companies = [\n      {\n        id: lead._embedded.companies[0].id\n      }\n    ];\n  }\n\n  leadsToUpdate.push(payload);\n}\n\nreturn [\n  {\n    json: {\n      payload: leadsToUpdate\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4592,
+        -160
+      ],
+      "id": "b1950630-333a-48ef-bcf7-89517d823dfb",
+      "name": "Create Kommo 2. Update Body"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ادخل على الـ JSON string اللي جاي من HTTP Response\nconst rawData = $input.item.json.data;\nconst parsed = JSON.parse(rawData);\n\n// استخرج الـ leads\nconst leads = parsed._embedded.leads;\n\n// أرجعهم كلهم كـ عناصر منفصلة\nreturn leads.map(lead => ({\n  json: {\n    lead_id: lead.id\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4880,
+        -144
+      ],
+      "id": "bce48b9c-04f1-4bd0-a692-a80a6649009f",
+      "name": "Trans update1"
+    },
+    {
+      "parameters": {
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads/{{ $json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZmU3OGU5OTE5MzMzODgzN2IyZDRkN2UyYWI3NzE5OTY2YTQ2OTQ1YTg3NDRhYmM2ZGQxNTZiZmNiNWUxMDA1MjQxYTY2ZTM3YzkxNTMwIn0.eyJhdWQiOiI5Y2E0M2JkMS00MWQzLTQxMDktOTdkNi1kM2U4Mzg0ZGNmZmUiLCJqdGkiOiI1ZGZlNzhlOTkxOTMzMzg4MzdiMmQ0ZDdlMmFiNzcxOTk2NmE0Njk0NWE4NzQ0YWJjNmRkMTU2YmZjYjVlMTAwNTI0MWE2NmUzN2M5MTUzMCIsImlhdCI6MTc1MjM1ODMyNywibmJmIjoxNzUyMzU4MzI3LCJleHAiOjE3OTIwMjI0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiMDE5NTYyZmQtZGI5NC00MzhhLWExMDktNGMxMWY2YzJkMzE4IiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RruKfCExL1HlNEFvaBF_p3IQXoFJ26vgayy9vtqf4iCIJB9J2A3RNYIBOFQ_OnJAPL-3Hw8rCKIC5LswBkwur-qd22otXURZmLQTF3fvzHQtyf1EF20qw6szKau_8JoqRhfq9PYSaeUv8AVMkaP_wH23fi9AyCMyO7LRhl-ImzVnUjfryAwGhQzSK-XKd1SbDqh_y2s8HYE1S38VOzbvNINffZNHQwv5EvzpaWi8DMf9WVpzbOVzZ8WUaPk80l2PnNSBvro5mLvPwV2HUdfbalz1ccgsaFsomutQC8Zgda99CUKVQ4n6I7x2gn4nc6VuneF9obc1JX53RiwrkREmNA"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5008,
+        -320
+      ],
+      "id": "9201c5e7-4167-4a5a-9b30-a8ca1c1f6135",
+      "name": "update Reverse Fetch 3"
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "parameters": {
+            "triggerTimes": [
+              {
+                "mode": "everyDay",
+                "hour": 13,
+                "minute": 0
+              },
+              {
+                "mode": "everyDay",
+                "hour": 20,
+                "minute": 0
+              }
+            ]
+          },
+          "id": "scheduleTriggerNode",
+          "name": "Schedule Trigger",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1,
+          "position": [
+            450,
+            300
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search monthly taxes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get row(s) in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Create folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        []
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search monthly taxes": {
+      "main": [
+        [
+          {
+            "node": "Search inside monthly taxes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search inside monthly taxes": {
+      "main": [
+        [
+          {
+            "node": "file normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Taxpayers": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Limited Company": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Search TAX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code7": {
+      "main": [
+        [
+          {
+            "node": "Create folder1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search personal company": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Search TAX Folder2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Search TAX Folder1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search TAX Folder1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Search TAX Folder2": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Search TAX": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "folder normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File and folder matching": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "folder normalize": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "file normalize": {
+      "main": [
+        [
+          {
+            "node": "Search Limited Company",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search personal company",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Taxpayers",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "File and folder matching",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Move file to tax folder",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Code9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move file to tax folder": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge4": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code9": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge5": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [],
+        []
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "matching",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Code6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Code10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge6": {
+      "main": [
+        [
+          {
+            "node": "matching to update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge7": {
+      "main": [
+        [
+          {
+            "node": "matching 2.update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code19": {
+      "main": [
+        [
+          {
+            "node": "Merge8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge8": {
+      "main": [
+        [
+          {
+            "node": "Code20",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code20": {
+      "main": [
+        [
+          {
+            "node": "Code21",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code21": {
+      "main": [
+        [
+          {
+            "node": "Code22",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code22": {
+      "main": [
+        [
+          {
+            "node": "Code23",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code23": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LED registration": {
+      "main": [
+        [
+          {
+            "node": "Trans registration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LED Update Stage Pipe Line": {
+      "main": [
+        [
+          {
+            "node": "Trans update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code25": {
+      "main": [
+        []
+      ]
+    },
+    "Prepare Kommo Data": {
+      "main": [
+        [
+          {
+            "node": "Create Kommo Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "matching": {
+      "main": [
+        [
+          {
+            "node": "Prepare Kommo Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "index": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Trans registration": {
+      "main": [
+        [
+          {
+            "node": "Add Reverse Fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trans Reverse": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update Reverse Fetch 2": {
+      "main": [
+        [
+          {
+            "node": "Trans Reverse  update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Kommo Body": {
+      "main": [
+        [
+          {
+            "node": "LED registration",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "index",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Kommo update": {
+      "main": [
+        [
+          {
+            "node": "Create Kommo Update Body",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Add Reverse Fetch": {
+      "main": [
+        [
+          {
+            "node": "Trans Reverse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "matching to update": {
+      "main": [
+        [
+          {
+            "node": "Prepare Kommo update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trans update": {
+      "main": [
+        [
+          {
+            "node": "update Reverse Fetch 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trans Reverse  update": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "matching 2.update": {
+      "main": [
+        [
+          {
+            "node": "Create Kommo 2. Update",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge8",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Create Kommo Update Body": {
+      "main": [
+        [
+          {
+            "node": "LED Update Stage Pipe Line",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LED Update mane .tel . email": {
+      "main": [
+        [
+          {
+            "node": "Trans update1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Kommo 2. Update": {
+      "main": [
+        [
+          {
+            "node": "Create Kommo 2. Update Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Kommo 2. Update Body": {
+      "main": [
+        [
+          {
+            "node": "LED Update mane .tel . email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trans update1": {
+      "main": [
+        [
+          {
+            "node": "update Reverse Fetch 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "57de04a7-bef3-403f-a4cc-bba410434232",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bbcc8f8955fdb6b9df383b7af3b82b49081e116d9ff63429580cf5caee57238e"
+  },
+  "id": "V8aCuSFKXMs90h65",
+  "tags": []
+}
