@@ -1,0 +1,208 @@
+{
+  "name": "إنشاء نظام محاسبة الأفلام الوثائقية",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger-1",
+      "name": "عند التشغيل اليدوي",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        256,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const spreadsheetName = \"نظام محاسبة الأفلام الوثائقية - \" + new Date().toISOString().split('T')[0];\n\nconst sheets = [\n  {\n    name: \"قاعدة بيانات المشاريع\",\n    headers: [\"كود المشروع\", \"اسم الفيلم\", \"اسم القناة\", \"اسم البرنامج\", \"نوع التمويل\", \"قيمة التمويل ($)\", \"تاريخ البدء\", \"تاريخ التسليم النهائي\", \"قيمة العقد مع القناة ($)\", \"حالة المشروع\"]\n  },\n  {\n    name: \"المصروفات المباشرة\",\n    headers: [\"كود المشروع\", \"تاريخ المصروف\", \"بند المصروف\", \"اسم المورد/الفرد\", \"المبلغ الإجمالي ($)\", \"دفعة مقدمة ($)\", \"المبلغ المتبقي ($)\", \"شروط السداد\", \"تاريخ الاستحقاق\", \"حالة السداد\", \"ملاحظات\"]\n  },\n  {\n    name: \"المصروفات العمومية\",\n    headers: [\"تاريخ المصروف\", \"نوع المصروف\", \"التفاصيل\", \"المبلغ ($)\", \"تاريخ السداد\", \"حالة السداد\"]\n  },\n  {\n    name: \"قاعدة بيانات الأفراد\",\n    headers: [\"اسم الشخص\", \"التخصص\", \"رقم الهاتف\", \"البريد الإلكتروني\", \"شروط الدفع الافتراضية\"]\n  },\n  {\n    name: \"الإيرادات\",\n    headers: [\"كود المشروع\", \"تاريخ التسليم\", \"تاريخ الاستحقاق المتوقع\", \"المبلغ المتفق عليه ($)\", \"المبلغ المستلم ($)\", \"تاريخ الاستلام الفعلي\", \"المتبقي ($)\"]\n  },\n  {\n    name: \"التمويل\",\n    headers: [\"كود التمويل\", \"نوع التمويل\", \"المشاريع المرتبطة\", \"مبلغ التمويل ($)\", \"تاريخ الاستلام\", \"تاريخ السداد المتوقع\", \"نسبة الأرباح للمستثمر (%)\", \"حالة السداد\"]\n  },\n  {\n    name: \"تقرير المشروع\",\n    headers: [\"كود المشروع\", \"اسم الفيلم\", \"المصروفات المباشرة ($)\", \"المصروفات العمومية 30% ($)\", \"إجمالي التكلفة ($)\", \"الإيرادات ($)\", \"صافي الربح/الخسارة ($)\", \"نسبة الربحية (%)\"]\n  },\n  {\n    name: \"تقرير الأفراد\",\n    headers: [\"اسم الشخص\", \"المشروع\", \"المبلغ المستحق ($)\", \"المدفوع ($)\", \"المتبقي ($)\", \"تاريخ الاستحقاق\", \"حالة السداد\"]\n  },\n  {\n    name: \"التدفقات النقدية\",\n    headers: [\"الشهر\", \"التدفقات الداخلة ($)\", \"التدفقات الخارجة ($)\", \"الرصيد الشهري ($)\", \"التوقعات ($)\"]\n  },\n  {\n    name: \"لوحة التحكم\",\n    headers: [\"المؤشر\", \"القيمة\", \"التفاصيل\"]\n  }\n];\n\nreturn [{\n  spreadsheetName,\n  sheets\n}];"
+      },
+      "id": "set-data-1",
+      "name": "إعداد بيانات الشيت",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "title": "={{ $json.spreadsheetName }}",
+        "options": {}
+      },
+      "id": "create-gs-1",
+      "name": "إنشاء ملف Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        656,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst spreadsheetId = items[0].json.spreadsheetId;\nconst allData = $('إعداد بيانات الشيت').all();\nconst sheets = allData[0].json.sheets;\n\nreturn [{\n  spreadsheetId,\n  sheets\n}];"
+      },
+      "id": "get-id-1",
+      "name": "الحصول على معرف الملف",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "sheets",
+        "include": "selectedOtherFields",
+        "fieldsToInclude": {
+          "fields": [
+            {
+              "fieldName": "spreadsheetId"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "split-1",
+      "name": "تقسيم الشيتات",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.spreadsheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.name }}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "headers-1",
+      "name": "إضافة العناوين للشيتات",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1264,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst spreadsheetId = items[0].json.spreadsheetId;\nconst spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;\n\nreturn [{\n  success: true,\n  message: \"تم إنشاء نظام المحاسبة بنجاح! ✅\",\n  spreadsheetUrl: spreadsheetUrl,\n  spreadsheetId: spreadsheetId,\n  instructions: {\n    step1: \"افتح الرابط أعلاه\",\n    step2: \"ستجد جميع الشيتات جاهزة مع العناوين\",\n    step3: \"الخطوة التالية: إضافة المعادلات والتنسيقات\",\n    step4: \"سنقوم بإضافة Data Validation للقوائم المنسدلة\"\n  }\n}];"
+      },
+      "id": "success-1",
+      "name": "رسالة النجاح",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        304
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "عند التشغيل اليدوي": {
+      "main": [
+        [
+          {
+            "node": "إعداد بيانات الشيت",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "إعداد بيانات الشيت": {
+      "main": [
+        [
+          {
+            "node": "إنشاء ملف Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "إنشاء ملف Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "الحصول على معرف الملف",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "الحصول على معرف الملف": {
+      "main": [
+        [
+          {
+            "node": "تقسيم الشيتات",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "تقسيم الشيتات": {
+      "main": [
+        [
+          {
+            "node": "إضافة العناوين للشيتات",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "إضافة العناوين للشيتات": {
+      "main": [
+        [
+          {
+            "node": "رسالة النجاح",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionOrder": "v1"
+  },
+  "versionId": "0e2138f0-532c-44db-990c-457483e5842b",
+  "meta": {
+    "instanceId": "bbcc8f8955fdb6b9df383b7af3b82b49081e116d9ff63429580cf5caee57238e"
+  },
+  "id": "yFK6yvLIWscUAnfN",
+  "tags": []
+}

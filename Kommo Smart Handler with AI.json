@@ -1,0 +1,811 @@
+{
+  "name": "Kommo Smart Handler with AI",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "afe5a175-348d-4d4d-8dae-e3ef49ecfa15",
+        "options": {}
+      },
+      "id": "71100a8f-e0aa-441e-81ff-83069e84e6d1",
+      "name": "Kommo Webhook Receiver",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1616,
+        416
+      ],
+      "webhookId": "afe5a175-348d-4d4d-8dae-e3ef49ecfa15"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.should_respond}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "220aed3a-ddbf-42e4-8312-2454bc2c38cf"
+            },
+            {
+              "leftValue": "={{$json.message_text}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "id": "5af1d10d-3ebe-42fc-8e53-b276b7445db1"
+            },
+            {
+              "id": "db075dcf-79a0-4bba-9602-22912694bc27",
+              "leftValue": "={{($json.confidence_level || \"medium\").toString()}}",
+              "rightValue": "low",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "37a2123e-40bc-4154-b6d0-643d4d937c7e",
+      "name": "Need AI Response?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        112,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "prompt": {
+          "messages": [
+            {
+              "role": "assistant",
+              "content": "=أنت مساعد خدمة عملاء محترف لشركة الديوان.  قواعد مهمة: - رد باللغة العربية إذا كان السؤال بالعربية، وبالإنجليزية إذا كان بالإنجليزية - كن مختصراً وواضحاً (لا تتجاوز 3 جمل) - أظهر الود والاحترام - إذا سُئلت عن الأسعار، اطلب من العميل التواصل مع المبيعات  معلومات العميل: الاسم: {{$json.client_name || \"عميل\"}} القناة: {{$json.message_origin || \"غير محدد\"}}"
+            },
+            {
+              "content": "={{$json.message_text}}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 300,
+          "temperature": 0.7
+        },
+        "requestOptions": {}
+      },
+      "id": "31c9af6d-924b-4b17-8fae-263416f17863",
+      "name": "Generate AI Response",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.1,
+      "position": [
+        336,
+        -480
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "UgxxU7JRYK5Qpel4",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://infodvnlogcom.kommo.com/api/v4/leads/{{$json.lead_id}}/notes",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "kommoApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY8s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"note_type\": \"common\",\n  \"params\": {\n    \"text\": \"🤖 AI Response:\\n{{$json.choices[0].message.content}}\",\n    \"service\": \"AI Assistant\"\n  }\n}",
+        "options": {}
+      },
+      "id": "64af0b19-ef5d-471d-bdfa-d8f3b43b3bad",
+      "name": "Send to Kommo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        112,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1gEBF0y9g9UwslW6SWiO5aeyJ6hYzFOY4I5sQI5UVC44",
+          "mode": "list",
+          "cachedResultName": "kommo",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gEBF0y9g9UwslW6SWiO5aeyJ6hYzFOY4I5sQI5UVC44/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Update Conversation Context",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gEBF0y9g9UwslW6SWiO5aeyJ6hYzFOY4I5sQI5UVC44/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "=={{$json.chat_id}}",
+            "lead_id": "=={{$json.lead_id}}",
+            "client_name": "={{$json.client_name}}",
+            "last_message": "={{$json.message_text}}",
+            "last_response": "={{$json.ai_response || $json.choices[0].message.content}}",
+            "last_updated": "={{$now.toISO()}}",
+            "message_count": "={($json.message_count || 0) + 1}}",
+            "conversation_history": "={{$json.conversation_history}}",
+            "language": "={{$json.message_text.match(/[\\u0600-\\u06FF]/) ? 'ar' : 'en'}}",
+            "status": "={{\"active\"}}",
+            "tags": "={{$json.event_types}}",
+            "message_fingerprint": "={{$json.message_fingerprint || \"\"}}",
+            "processing_time_ms": "={{$json.processing_time_ms || 0}}",
+            "completeness": "={{$json.completeness_percentage || 100}}%",
+            "total_pulses": "={{$json.final_pulse_count || 1}}",
+            "confidence_level": "={{$json.confidence_level || \"medium\"}}",
+            "service_type": "={{$json.service_type || \"general\"}}",
+            "status_id": "={{$json.status_id || \"\"}}",
+            "pipeline_id": "={{$json.pipeline_id || \"\"}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "client_name",
+              "displayName": "client_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_message",
+              "displayName": "last_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_response",
+              "displayName": "last_response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_updated",
+              "displayName": "last_updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_count",
+              "displayName": "message_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "conversation_history",
+              "displayName": "conversation_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pipeline_id",
+              "displayName": "pipeline_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status_id",
+              "displayName": "status_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "service_type",
+              "displayName": "service_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "confidence_level",
+              "displayName": "confidence_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total_pulses",
+              "displayName": "total_pulses",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "completeness",
+              "displayName": "completeness",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "processing_time_ms",
+              "displayName": "processing_time_ms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message_fingerprint",
+              "displayName": "message_fingerprint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "ad18a72d-b383-41aa-842b-8d5dab00f466",
+      "name": "Update Conversation Context",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        336,
+        -32
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads?query={{ $json.primary_query_value }}\n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY8s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        368,
+        400
+      ],
+      "id": "92252e86-f6ee-427f-a311-7d0378b296e8",
+      "name": "search Leads",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1392,
+        416
+      ],
+      "id": "50c70565-50a2-4bab-87b6-8343d858f8be",
+      "name": "Wait",
+      "webhookId": "01d6a03d-d876-42d3-8af2-bfacca0027d1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        192
+      ],
+      "id": "15cfa487-b39f-4f15-9db2-2726fb99f92b",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// معالج Kommo Webhooks - النسخة الشاملة المحدثة\n// ================================================\n// Version: 11.0 - محدث لمنع الكتابة المتكررة في Google Sheets\n// التحديث: إضافة fingerprint فريد لكل حدث + منع معالجة الرسائل المكررة\n\nconst CONFIG = {\n  TIME_WINDOW: 5,            // نافذة زمنية 5 ثواني للرسالة الواحدة\n  MESSAGE_CACHE_TTL: 120000, // مدة الاحتفاظ بالكاش\n  MAX_EVENTS_PER_MESSAGE: 10,\n  MAX_CACHE_SIZE: 5000,\n  DEBUG_MODE: true\n};\n\nconst PIPELINE_CONFIG = {\n  '10794139': {\n    name: 'Sales Pipeline',\n    service: 'sales',\n    initial_stage: '82771955',\n    initial_stage_name: 'Initial',\n    ai_stages: ['10794142', '10794143'],\n    bot_stages: ['10794140', '10794141'],\n    critical_stages: ['10794144']\n  },\n  '10794150': {\n    name: 'Support Pipeline',\n    service: 'support',\n    ai_stages: ['10794152', '10794153'],\n    bot_stages: ['10794151'],\n    critical_stages: ['10794154']\n  },\n  '10794160': {\n    name: 'Onboarding Pipeline',\n    service: 'onboarding',\n    ai_stages: ['10794162'],\n    bot_stages: ['10794161', '10794163'],\n    critical_stages: []\n  }\n};\n\nconst TAG_RULES = {\n  ai_required: ['vip', 'urgent', 'complex', 'ai-assist', 'premium', 'enterprise', 'priority'],\n  bot_only: ['simple', 'faq', 'auto-reply', 'bot-handled', 'no-ai', 'standard', 'routine'],\n  human_required: ['complaint', 'escalation', 'legal', 'refund', 'critical', 'emergency', 'manual'],\n  language: {\n    'ar': 'arabic',\n    'en': 'english',\n    'es': 'spanish',\n    'fr': 'french'\n  }\n};\n\n// تهيئة الذاكرة المؤقتة مع فحص الأمان\nconst staticData = $getWorkflowStaticData('global');\n\n// التأكد من وجود جميع الخصائص المطلوبة\nif (!staticData.messageCache) {\n  staticData.messageCache = {};\n}\nif (!staticData.processedGroups) {\n  staticData.processedGroups = {};\n}\nif (!staticData.processedMessages) {\n  staticData.processedMessages = {};\n}\nif (!staticData.lastCleanup) {\n  staticData.lastCleanup = Date.now();\n}\nif (!staticData.cacheSize) {\n  staticData.cacheSize = 0;\n}\n\nfunction debugLog(...args) {\n  if (CONFIG.DEBUG_MODE) {\n    console.log(...args);\n  }\n}\n\n// ==================\n// دالة محسنة جداً لاستخراج النص - النسخة الشاملة\n// ==================\nfunction extractMessageText(body, eventType) {\n  let text = '';\n  \n  debugLog(\"Extracting text for event type:\", eventType);\n  debugLog(\"Body keys available:\", Object.keys(body).slice(0, 30));\n  \n  // قائمة شاملة جداً بجميع المسارات المحتملة للنص\n  const allTextPaths = [\n    // === مسارات talk[update] الجديدة ===\n    'talk[update][0][last_message_text]',\n    'talk[update][0][messages][0][text]',\n    'talk[update][0][messages][last][text]',\n    'talk[update][0][last_message][text]',\n    'talk[update][0][last_message][content]',\n    'talk[update][0][talk][last_message]',\n    'talk[update][0][talk][messages][0][text]',\n    'talk[update][0][conversation][last_message]',\n    'talk[update][0][chat][messages][0][text]',\n    'talk[update][0][updates][message][text]',\n    'talk[update][0][data][text]',\n    'talk[update][0][data][message]',\n    'talk[update][0][text]',\n    'talk[update][0][message]',\n    'talk[update][0][body]',\n    'talk[update][0][content]',\n    \n    // === مسارات talk[add] ===\n    'talk[add][0][last_message]',\n    'talk[add][0][text]',\n    'talk[add][0][message]',\n    'talk[add][0][body]',\n    'talk[add][0][content]',\n    'talk[add][0][messages][0][text]',\n    \n    // === مسارات message[add] ===\n    'message[add][0][text]',\n    'message[add][0][message]',\n    'message[add][0][body]',\n    'message[add][0][content]',\n    'message[add][0][text][body]',\n    'message[add][0][msg]',\n    'message[add][0][data]',\n    \n    // === مسارات unsorted ===\n    'unsorted[add][0][source_data][data][0][text]',\n    'unsorted[add][0][source_data][data][0][message]',\n    'unsorted[add][0][source_data][data][0][body]',\n    'unsorted[add][0][source_data][data][0][content]',\n    'unsorted[add][0][source_data][text]',\n    'unsorted[add][0][source_data][message]',\n    'unsorted[add][0][source_data][body]',\n    'unsorted[add][0][text]',\n    'unsorted[add][0][message]',\n    'unsorted[add][0][body]',\n    'unsorted[add][0][content]',\n    \n    // === مسارات leads[update] الجديدة ===\n    'leads[update][0][text]',\n    'leads[update][0][last_message]',\n    'leads[update][0][last_message_text]',\n    'leads[update][0][note]',\n    'leads[update][0][message]',\n    'leads[update][0][notes][0][text]',\n    'leads[update][0][notes][0][note_text]',\n    'leads[update][0][notes][0][params][text]',\n    'leads[update][0][notes][last][text]',\n    'leads[update][0][notes][last][params][text]',\n    'leads[update][0][custom_fields][0][values][0][value]',\n    'leads[update][0][custom_fields_values][0][values][0][value]',\n    'leads[update][0][updates][message]',\n    'leads[update][0][updates][text]',\n    'leads[update][0][chat][last_message]',\n    \n    // === مسارات contacts ===\n    'contacts[update][0][last_message]',\n    'contacts[update][0][note]',\n    'contacts[add][0][note]',\n    \n    // === مسارات إضافية للأحداث المتداخلة ===\n    'talk[update][0][_embedded][messages][0][text]',\n    'talk[update][0][_embedded][last_message]',\n    'leads[update][0][_embedded][notes][0][text]',\n    'leads[update][0][_embedded][messages][0][text]',\n    \n    // === مسارات للبيانات المتداخلة عميقاً ===\n    'talk[update][0][updates][0][message]',\n    'talk[update][0][updates][0][text]',\n    'leads[update][0][updates][0][message]',\n    'leads[update][0][updates][0][text]'\n  ];\n  \n  // محاولة استخراج النص من جميع المسارات\n  for (const path of allTextPaths) {\n    const value = body[path];\n    if (value && typeof value === 'string' && value.trim() !== '') {\n      // تجاهل القيم غير الصالحة\n      if (!value.includes('infodvnlog') && !value.includes('.com') && \n          !value.includes('http') && !value.includes('amocrm') &&\n          value.length > 1 && !(/^[\\d\\s]+$/.test(value))) {\n        text = value.trim();\n        debugLog(`✓ Found text at path: ${path} = \"${text.substring(0, 50)}...\"`);\n        break;\n      }\n    }\n  }\n  \n  // البحث في الحقول المخصصة بشكل موسع\n  if (!text) {\n    debugLog(\"Searching in custom fields...\");\n    // البحث في custom fields لـ leads\n    for (let i = 0; i < 30; i++) {\n      for (let j = 0; j < 10; j++) {\n        const paths = [\n          `leads[update][0][custom_fields_values][${i}][values][${j}][value]`,\n          `leads[update][0][custom_fields][${i}][values][${j}][value]`,\n          `leads[add][0][custom_fields_values][${i}][values][${j}][value]`\n        ];\n        \n        for (const customFieldPath of paths) {\n          if (body[customFieldPath]) {\n            const value = body[customFieldPath];\n            if (typeof value === 'string' && value.length > 2 && \n                !(/^[\\d\\s]+$/.test(value)) && !value.includes('http')) {\n              text = value.trim();\n              debugLog(`✓ Found text in custom field: ${customFieldPath}`);\n              break;\n            }\n          }\n        }\n        if (text) break;\n      }\n      if (text) break;\n    }\n  }\n  \n  // البحث في notes arrays بشكل موسع\n  if (!text) {\n    debugLog(\"Searching in notes arrays...\");\n    for (let i = 0; i < 20; i++) {\n      const notePaths = [\n        `leads[update][0][notes][${i}][text]`,\n        `leads[update][0][notes][${i}][note_text]`,\n        `leads[update][0][notes][${i}][params][text]`,\n        `talk[update][0][notes][${i}][text]`,\n        `talk[update][0][messages][${i}][text]`,\n        `talk[update][0][messages][${i}][content]`\n      ];\n      \n      for (const notePath of notePaths) {\n        if (body[notePath]) {\n          const value = body[notePath];\n          if (typeof value === 'string' && value.trim() !== '') {\n            text = value.trim();\n            debugLog(`✓ Found text in notes: ${notePath}`);\n            break;\n          }\n        }\n      }\n      if (text) break;\n    }\n  }\n  \n  // البحث في أي مفتاح يحتوي على كلمات مفتاحية\n  if (!text) {\n    debugLog(\"Searching in dynamic keys...\");\n    Object.keys(body).forEach(key => {\n      if (!text && (\n          key.includes('[text]') || key.includes('[message]') || \n          key.includes('[body]') || key.includes('[content]') ||\n          key.includes('[msg]') || key.includes('[note]') ||\n          key.includes('[last_message]') || key.includes('[last_message_text]')\n      )) {\n        const value = body[key];\n        if (value && typeof value === 'string' && value.trim() !== '') {\n          if (!value.includes('infodvnlog') && !value.includes('.com') &&\n              !value.includes('http') && value.length > 1) {\n            text = value.trim();\n            debugLog(`✓ Found text in dynamic key: ${key}`);\n          }\n        }\n      }\n    });\n  }\n  \n  // البحث العميق في البيانات المتداخلة\n  if (!text) {\n    debugLog(\"Deep searching in nested data...\");\n    const searchNested = (obj, depth = 0, path = '') => {\n      if (depth > 7 || !obj || typeof obj !== 'object') return '';\n      \n      for (const [key, value] of Object.entries(obj)) {\n        const currentPath = path ? `${path}.${key}` : key;\n        \n        // قائمة موسعة من المفاتيح المحتملة\n        const textKeys = [\n          'text', 'message', 'body', 'content', 'msg', 'note',\n          'last_message', 'last_message_text', 'value', 'comment',\n          'description', 'reply', 'response', 'answer', 'question',\n          'user_message', 'client_message', 'customer_message'\n        ];\n        \n        if (textKeys.includes(key.toLowerCase()) &&\n            typeof value === 'string' && value.trim() !== '') {\n          if (!value.includes('infodvnlog') && !value.includes('.com') &&\n              !value.includes('http') && value.length > 1) {\n            debugLog(`✓ Found text in nested path: ${currentPath}`);\n            return value.trim();\n          }\n        }\n        \n        if (typeof value === 'object') {\n          const nested = searchNested(value, depth + 1, currentPath);\n          if (nested) return nested;\n        }\n      }\n      return '';\n    };\n    \n    text = searchNested(body);\n  }\n  \n  // محاولة أخيرة: البحث في JSON المتسلسل\n  if (!text) {\n    debugLog(\"Last attempt: searching in serialized JSON...\");\n    try {\n      const bodyStr = JSON.stringify(body);\n      // البحث عن أنماط نصية محتملة\n      const patterns = [\n        /\"text\"\\s*:\\s*\"([^\"]+)\"/,\n        /\"message\"\\s*:\\s*\"([^\"]+)\"/,\n        /\"last_message\"\\s*:\\s*\"([^\"]+)\"/,\n        /\"last_message_text\"\\s*:\\s*\"([^\"]+)\"/,\n        /\"content\"\\s*:\\s*\"([^\"]+)\"/,\n        /\"body\"\\s*:\\s*\"([^\"]+)\"/\n      ];\n      \n      for (const pattern of patterns) {\n        const match = bodyStr.match(pattern);\n        if (match && match[1]) {\n          const extracted = match[1];\n          if (extracted.length > 2 && !extracted.includes('http') &&\n              !extracted.includes('infodvnlog')) {\n            text = extracted;\n            debugLog(`✓ Found text via pattern matching: \"${text.substring(0, 50)}...\"`);\n            break;\n          }\n        }\n      }\n    } catch (e) {\n      debugLog(\"Error in JSON serialization:\", e);\n    }\n  }\n  \n  if (!text) {\n    debugLog(\"⚠️ WARNING: No text found in any path!\");\n    debugLog(\"Event type:\", eventType);\n    debugLog(\"Body structure sample:\", JSON.stringify(body).substring(0, 2000));\n  } else {\n    debugLog(`✅ Successfully extracted text: \"${text.substring(0, 100)}...\"`);\n  }\n  \n  return text;\n}\n\nfunction extractFlatValue(obj, ...keys) {\n  for (const key of keys) {\n    const value = obj[key];\n    if (value !== undefined && value !== null && value !== '') {\n      if (typeof value === 'string' && value.trim() !== '') {\n        if (!value.includes('infodvnlog') && !value.includes('.com')) {\n          return value.trim();\n        }\n      } else if (value) {\n        return value;\n      }\n    }\n  }\n  return '';\n}\n\n// دالة لاكتشاف المنصة\nfunction detectPlatform(source, body) {\n  const s = (source || '').toLowerCase();\n  if (s.includes('waba') || s.includes('whatsapp')) return 'whatsapp';\n  if (s.includes('instagram') || s.includes('ig')) return 'instagram';\n  if (s.includes('facebook') || s.includes('fb')) return 'facebook';\n  if (s.includes('telegram') || s.includes('tg')) return 'telegram';\n  return 'unknown';\n}\n\n// دالة توليد البصمة الذكية المحسنة - نسخة محدثة لمنع التداخل\nfunction generateFingerprint(data) {\n  const { entity_id, conversation_id, lead_id, chat_id, platform, created_at, event_type, message_id, talk_id } = data;\n  \n  // استخدام timestamp الفعلي\n  const eventTime = created_at ? Number(created_at) : Date.now() / 1000;\n  const timeWindow = Math.floor(eventTime / CONFIG.TIME_WINDOW);\n  \n  // إضافة نوع الحدث ومعرف الرسالة للبصمة لضمان الفرادة\n  let uniqueIdentifier = '';\n  \n  // إعطاء الأولوية للمعرفات الفريدة\n  if (message_id) {\n    // للرسائل، استخدم معرف الرسالة\n    uniqueIdentifier = `msg_${message_id}`;\n  } else if (talk_id && event_type) {\n    // للأحداث الأخرى، استخدم talk_id مع نوع الحدث\n    uniqueIdentifier = `${event_type}_${talk_id}_${eventTime}`;\n  } else if (event_type) {\n    // استخدم نوع الحدث مع الوقت الدقيق\n    uniqueIdentifier = `${event_type}_${eventTime}`;\n  } else {\n    // كـ fallback، استخدم الوقت الدقيق\n    uniqueIdentifier = `event_${eventTime}`;\n  }\n  \n  // بصمة متعددة المستويات مع أولوية للمعرفات\n  if (lead_id) {\n    return `${platform}_lead_${lead_id}_${uniqueIdentifier}`;\n  } else if (entity_id && conversation_id) {\n    return `${platform}_${entity_id}_${conversation_id}_${uniqueIdentifier}`;\n  } else if (chat_id) {\n    return `${platform}_chat_${chat_id}_${uniqueIdentifier}`;\n  } else if (entity_id) {\n    return `${platform}_${entity_id}_${uniqueIdentifier}`;\n  } else if (conversation_id) {\n    return `${platform}_${conversation_id}_${uniqueIdentifier}`;\n  }\n  \n  return `${platform}_unknown_${uniqueIdentifier}`;\n}\n\n// استخراج Tags محسن\nfunction extractTags(body) {\n  const tags = [];\n  const tagPaths = [\n    'leads[update][0][tags]',\n    'leads[add][0][tags]',\n    'unsorted[add][0][tags]',\n    'contacts[update][0][tags]',\n    'leads[update][0][_embedded][tags]',\n    'talk[update][0][tags]',\n    'talk[add][0][tags]'\n  ];\n  \n  for (const path of tagPaths) {\n    const value = body[path];\n    if (value) {\n      if (typeof value === 'string') {\n        tags.push(...value.split(',').map(t => t.trim().toLowerCase()));\n      } else if (Array.isArray(value)) {\n        value.forEach(tag => {\n          if (typeof tag === 'string') {\n            tags.push(tag.toLowerCase());\n          } else if (tag.name) {\n            tags.push(tag.name.toLowerCase());\n          }\n        });\n      }\n    }\n  }\n  \n  // البحث في tags arrays\n  for (let i = 0; i < 10; i++) {\n    const tagPath = `leads[update][0][tags][${i}]`;\n    if (body[tagPath]) {\n      if (typeof body[tagPath] === 'string') {\n        tags.push(body[tagPath].toLowerCase());\n      } else if (body[tagPath].name) {\n        tags.push(body[tagPath].name.toLowerCase());\n      }\n    }\n  }\n  \n  Object.keys(body).forEach(key => {\n    if (key.includes('[tags][') || key.includes('[tag][')) {\n      const value = body[key];\n      if (value && typeof value === 'string') {\n        tags.push(value.toLowerCase());\n      }\n    }\n  });\n  \n  return [...new Set(tags)];\n}\n\n// استخراج معلومات Pipeline/Stage محسن\nfunction extractPipelineStageInfo(body) {\n  const info = {\n    pipeline_id: '',\n    pipeline_name: '',\n    stage_id: '',\n    stage_name: '',\n    previous_stage_id: '',\n    stage_changed: false\n  };\n  \n  // استخراج Pipeline ID من مسارات متعددة\n  info.pipeline_id = extractFlatValue(body,\n    'leads[update][0][pipeline_id]',\n    'leads[add][0][pipeline_id]',\n    'unsorted[add][0][pipeline_id]',\n    'leads[status][0][pipeline_id]',\n    'talk[update][0][pipeline_id]',\n    'leads[update][0][_embedded][pipeline_id]'\n  );\n  \n  // استخراج Stage ID من مسارات متعددة\n  info.stage_id = extractFlatValue(body,\n    'leads[update][0][status_id]',\n    'leads[add][0][status_id]',\n    'unsorted[add][0][status_id]',\n    'leads[status][0][status_id]',\n    'leads[update][0][new_status_id]',\n    'talk[update][0][status_id]'\n  );\n  \n  info.previous_stage_id = extractFlatValue(body,\n    'leads[update][0][old_status_id]',\n    'leads[status][0][old_status_id]',\n    'leads[update][0][previous_status_id]'\n  );\n  \n  info.pipeline_name = extractFlatValue(body,\n    'leads[update][0][pipeline][name]',\n    'leads[update][0][pipeline_name]',\n    'leads[update][0][_embedded][pipeline][name]'\n  );\n  \n  info.stage_name = extractFlatValue(body,\n    'leads[update][0][status][name]',\n    'leads[update][0][status_name]',\n    'leads[update][0][_embedded][status][name]'\n  );\n  \n  if (info.previous_stage_id && info.stage_id && info.previous_stage_id !== info.stage_id) {\n    info.stage_changed = true;\n  }\n  \n  // تعيين القيم الافتراضية من التكوين\n  if (info.pipeline_id && PIPELINE_CONFIG[info.pipeline_id]) {\n    const config = PIPELINE_CONFIG[info.pipeline_id];\n    info.pipeline_name = info.pipeline_name || config.name;\n    info.service_type = config.service;\n    if (!info.stage_id) {\n      info.stage_id = config.initial_stage;\n      info.stage_name = config.initial_stage_name;\n    }\n  }\n  \n  return info;\n}\n\n// تحديد نوع التدخل المطلوب\nfunction determineInterventionType(pipeline_id, stage_id, tags) {\n  const intervention = {\n    type: 'bot',\n    reason: [],\n    priority: 'normal',\n    service: 'general',\n    language: 'ar',\n    requires_human: false,\n    use_ai_agent: false,\n    confidence: 'high'\n  };\n  \n  const pipelineConfig = PIPELINE_CONFIG[pipeline_id];\n  if (pipelineConfig) {\n    intervention.service = pipelineConfig.service;\n    \n    if (pipelineConfig.critical_stages && pipelineConfig.critical_stages.includes(stage_id)) {\n      intervention.type = 'human';\n      intervention.requires_human = true;\n      intervention.priority = 'critical';\n      intervention.reason.push('critical_stage');\n    } else if (pipelineConfig.ai_stages && pipelineConfig.ai_stages.includes(stage_id)) {\n      intervention.type = 'ai_agent';\n      intervention.use_ai_agent = true;\n      intervention.priority = 'high';\n      intervention.reason.push('ai_stage');\n    } else if (pipelineConfig.bot_stages && pipelineConfig.bot_stages.includes(stage_id)) {\n      intervention.type = 'bot';\n      intervention.reason.push('bot_stage');\n    }\n  } else {\n    intervention.confidence = 'medium';\n    intervention.reason.push('unknown_pipeline');\n  }\n  \n  if (tags && tags.length > 0) {\n    const humanTags = tags.filter(tag => TAG_RULES.human_required.includes(tag));\n    if (humanTags.length > 0) {\n      intervention.type = 'human';\n      intervention.requires_human = true;\n      intervention.priority = 'critical';\n      intervention.reason.push(`human_tags: ${humanTags.join(', ')}`);\n    }\n    \n    const aiTags = tags.filter(tag => TAG_RULES.ai_required.includes(tag));\n    if (aiTags.length > 0 && !intervention.requires_human) {\n      intervention.type = 'ai_agent';\n      intervention.use_ai_agent = true;\n      intervention.priority = intervention.priority === 'critical' ? 'critical' : 'high';\n      intervention.reason.push(`ai_tags: ${aiTags.join(', ')}`);\n    }\n    \n    const botTags = tags.filter(tag => TAG_RULES.bot_only.includes(tag));\n    if (botTags.length > 0 && !intervention.requires_human && !intervention.use_ai_agent) {\n      intervention.type = 'bot';\n      intervention.use_ai_agent = false;\n      intervention.priority = 'normal';\n      intervention.reason.push(`bot_tags: ${botTags.join(', ')}`);\n    }\n    \n    for (const tag of tags) {\n      if (TAG_RULES.language[tag]) {\n        intervention.language = tag;\n        break;\n      }\n    }\n  }\n  \n  return intervention;\n}\n\nfunction classifyEvent(body) {\n  const keys = Object.keys(body || {});\n  const has = (prefix) => keys.some(k => k.startsWith(prefix));\n  \n  const eventTypes = [\n    { check: 'message[add]', type: 'message[add]', priority: 10, category: 'message', expectedPulses: 9 },\n    { check: 'unsorted[add]', type: 'unsorted[add]', priority: 8, category: 'lead_creation', expectedPulses: 6 },\n    { check: 'talk[add]', type: 'talk[add]', priority: 6, category: 'conversation', expectedPulses: 4 },\n    { check: 'talk[update]', type: 'talk[update]', priority: 5, category: 'conversation', expectedPulses: 4 },\n    { check: 'leads[update]', type: 'leads[update]', priority: 4, category: 'lead_management', expectedPulses: 3 },\n    { check: 'leads[delete]', type: 'leads[delete]', priority: 1, category: 'deletion', expectedPulses: 1 },\n    { check: 'contacts[update]', type: 'contacts[update]', priority: 3, category: 'contact_management', expectedPulses: 2 }\n  ];\n  \n  for (const eventType of eventTypes) {\n    if (has(eventType.check)) {\n      return {\n        event_type: eventType.type,\n        priority: eventType.priority,\n        category: eventType.category,\n        expected_pulses: Math.min(eventType.expectedPulses, CONFIG.MAX_EVENTS_PER_MESSAGE)\n      };\n    }\n  }\n  \n  return { event_type: 'unknown', priority: 0, category: 'other', expected_pulses: 1 };\n}\n\n// ربط الأحداث المترابطة\nfunction crossReferenceEvents(eventGroups, staticData) {\n  // ربط talk[update] مع leads[update] بناءً على المعرفات المشتركة\n  for (const [key, group] of Object.entries(eventGroups)) {\n    if (!group.pipeline_id || !group.message_texts.length) {\n      // البحث في الكاش عن معلومات مكملة\n      for (const [cachedKey, cachedGroup] of Object.entries(staticData.messageCache)) {\n        if (group.entity_id && cachedGroup.entity_id === group.entity_id) {\n          // دمج المعلومات الناقصة\n          if (!group.pipeline_id && cachedGroup.pipeline_id) {\n            group.pipeline_id = cachedGroup.pipeline_id;\n            group.pipeline_name = cachedGroup.pipeline_name;\n          }\n          if (!group.stage_id && cachedGroup.stage_id) {\n            group.stage_id = cachedGroup.stage_id;\n            group.stage_name = cachedGroup.stage_name;\n          }\n          if (group.message_texts.length === 0 && cachedGroup.message_texts) {\n            group.message_texts = cachedGroup.message_texts;\n          }\n        }\n      }\n    }\n  }\n  return eventGroups;\n}\n\n// تنظيف الكاش القديم\nfunction cleanupCache() {\n  const now = Date.now();\n  if (now - staticData.lastCleanup > 60000) {\n    let removedCount = 0;\n    \n    for (const key in staticData.messageCache) {\n      if (now - staticData.messageCache[key].timestamp > CONFIG.MESSAGE_CACHE_TTL) {\n        delete staticData.messageCache[key];\n        removedCount++;\n      }\n    }\n    \n    for (const key in staticData.processedGroups) {\n      if (now - staticData.processedGroups[key] > CONFIG.MESSAGE_CACHE_TTL) {\n        delete staticData.processedGroups[key];\n      }\n    }\n    \n    // تنظيف معرفات الرسائل القديمة\n    for (const msgId in staticData.processedMessages) {\n      if (now - staticData.processedMessages[msgId].processed_at > CONFIG.MESSAGE_CACHE_TTL) {\n        delete staticData.processedMessages[msgId];\n        removedCount++;\n      }\n    }\n    \n    staticData.cacheSize = Object.keys(staticData.messageCache).length;\n    \n    if (staticData.cacheSize > CONFIG.MAX_CACHE_SIZE) {\n      const entries = Object.entries(staticData.messageCache)\n        .sort((a, b) => a[1].timestamp - b[1].timestamp);\n      \n      const toRemove = entries.slice(0, staticData.cacheSize - CONFIG.MAX_CACHE_SIZE);\n      toRemove.forEach(([key]) => {\n        delete staticData.messageCache[key];\n        removedCount++;\n      });\n    }\n    \n    staticData.lastCleanup = now;\n    debugLog(`Cache cleanup: removed ${removedCount} items, current size: ${staticData.cacheSize}`);\n  }\n}\n\n// ==================\n// المعالج الرئيسي\n// ==================\ncleanupCache();\n\nconst eventGroups = {};\n\n// استعادة المجموعات غير المكتملة من الكاش\nfor (const [key, cachedGroup] of Object.entries(staticData.messageCache)) {\n  if (!cachedGroup.is_complete) {\n    eventGroups[key] = {\n      ...cachedGroup,\n      unique_events: new Set(cachedGroup.unique_events_array || [])\n    };\n    debugLog(`Restored group from cache: ${key}`);\n  }\n}\n\n// معالجة كل نبضة واردة\nitems.forEach((item, index) => {\n  const j = item.json || {};\n  const b = j.body || {};\n  \n  debugLog(`\\n=== Processing Event ${index + 1} ===`);\n  debugLog(\"Body keys sample:\", Object.keys(b).slice(0, 10));\n  \n  const classification = classifyEvent(b);\n  debugLog(\"Event classification:\", classification);\n  \n  if (classification.category === 'deletion') {\n    debugLog(\"Ignoring deletion event\");\n    return;\n  }\n  \n  // استخراج المعرفات الموحدة - محسن\n  const lead_id = extractFlatValue(b,\n    'leads[update][0][id]',\n    'leads[add][0][id]',\n    'unsorted[add][0][lead_id]',\n    'talk[update][0][lead_id]'\n  );\n  \n  const entity_id = lead_id || extractFlatValue(b,\n    'message[add][0][entity_id]',\n    'message[add][0][element_id]',\n    'talk[update][0][entity_id]',\n    'talk[add][0][entity_id]',\n    'unsorted[add][0][source_data][contact_id]',\n    'unsorted[add][0][source_data][from_id]'\n  );\n  \n  const conversation_id = extractFlatValue(b,\n    'message[add][0][chat_id]',\n    'talk[update][0][chat_id]',\n    'talk[add][0][chat_id]',\n    'unsorted[add][0][source_data][conversation_id]',\n    'unsorted[add][0][source_data][origin][chat_id]',\n    'unsorted[add][0][source_data][thread_id]',\n    'leads[update][0][chat_id]'\n  );\n  \n  const message_id = extractFlatValue(b,\n    'message[add][0][id]',\n    'unsorted[add][0][source_data][data][0][id]',\n    'leads[update][0][message_id]',\n    'talk[update][0][message_id]'\n  );\n  \n  const talk_id = extractFlatValue(b,\n    'talk[update][0][talk_id]',\n    'talk[add][0][talk_id]',\n    'message[add][0][talk_id]',\n    'talk[update][0][id]'\n  );\n  \n  const source = extractFlatValue(b,\n    'message[add][0][origin]',\n    'unsorted[add][0][source]',\n    'talk[update][0][origin]',\n    'talk[add][0][origin]'\n  );\n  \n  const platform = detectPlatform(source, b);\n  \n  const created_at = extractFlatValue(b,\n    'message[add][0][created_at]',\n    'unsorted[add][0][created_at]',\n    'talk[update][0][updated_at]',\n    'talk[add][0][created_at]',\n    'unsorted[add][0][source_data][date]',\n    'leads[update][0][updated_at]'\n  );\n  \n  // استخراج البيانات باستخدام الدالة المحسنة جداً\n  const message_text = extractMessageText(b, classification.event_type);\n  \n  const client_name = extractFlatValue(b,\n    'message[add][0][author][name]',\n    'unsorted[add][0][source_data][client][name]',\n    'unsorted[add][0][source_data][from]',\n    'unsorted[add][0][source_data][name]',\n    'contacts[add][0][name]',\n    'contacts[update][0][name]',\n    'leads[update][0][contact_name]',\n    'talk[update][0][contact_name]'\n  );\n  \n  const pipelineStageInfo = extractPipelineStageInfo(b);\n  const tags = extractTags(b);\n  \n  // توليد البصمة المحسنة مع المعرفات الإضافية\n  const fingerprint = generateFingerprint({\n    entity_id,\n    conversation_id,\n    lead_id,\n    chat_id: conversation_id,\n    platform,\n    created_at,\n    event_type: classification.event_type,  // أضف نوع الحدث\n    message_id: message_id,                 // أضف معرف الرسالة\n    talk_id: talk_id                        // أضف معرف المحادثة\n  });\n  \n  // التحقق من المعالجة السابقة للرسائل\n  if (message_id && staticData.processedMessages[message_id]) {\n    debugLog(`Message ${message_id} already processed - skipping`);\n    return; // تخطي هذا الحدث\n  }\n  \n  debugLog(\"Fingerprint:\", fingerprint);\n  debugLog(\"Text:\", message_text || \"[EMPTY]\");\n  debugLog(\"Lead ID:\", lead_id);\n  debugLog(\"Pipeline:\", pipelineStageInfo.pipeline_id, pipelineStageInfo.pipeline_name);\n  debugLog(\"Stage:\", pipelineStageInfo.stage_id, pipelineStageInfo.stage_name);\n  debugLog(\"Tags:\", tags);\n  \n  // إنشاء أو تحديث المجموعة\n  if (!eventGroups[fingerprint]) {\n    eventGroups[fingerprint] = {\n      // المعرفات\n      fingerprint,\n      entity_id: '',\n      lead_id: '',\n      conversation_id: '',\n      message_id: '',\n      talk_id: '',\n      \n      // البيانات\n      message_texts: [],\n      client_name: '',\n      \n      // Pipeline/Stage\n      pipeline_id: '',\n      pipeline_name: '',\n      stage_id: '',\n      stage_name: '',\n      previous_stage_id: '',\n      stage_changed: false,\n      \n      // التجميع\n      tags: new Set(),\n      source: '',\n      platform,\n      \n      // الحالة\n      pulses_received: 0,\n      expected_pulses: classification.expected_pulses,\n      has_message: false,\n      is_new_lead: false,\n      is_complete: false,\n      \n      // التوقيت\n      created_at: created_at || Date.now() / 1000,\n      first_pulse_time: Date.now(),\n      last_pulse_time: Date.now(),\n      \n      // الأحداث\n      unique_events: new Set(),\n      event_priorities: [],\n      \n      // معلومات إضافية للربط\n      all_event_types: []\n    };\n  }\n  \n  const group = eventGroups[fingerprint];\n  \n  // تحديث البيانات - دمج من كل النبضات\n  group.pulses_received++;\n  group.last_pulse_time = Date.now();\n  group.unique_events.add(classification.event_type);\n  group.event_priorities.push(classification.priority);\n  group.all_event_types.push(classification.event_type);\n  \n  // تحديث المعرفات - مع الأولوية للـ lead_id\n  if (lead_id && !group.lead_id) group.lead_id = lead_id;\n  if (entity_id && !group.entity_id) group.entity_id = entity_id;\n  if (conversation_id && !group.conversation_id) group.conversation_id = conversation_id;\n  if (message_id && !group.message_id) group.message_id = message_id;\n  if (talk_id && !group.talk_id) group.talk_id = talk_id;\n  \n  // جمع النصوص من كل الأحداث\n  if (message_text) {\n    group.message_texts.push({\n      text: message_text,\n      event_type: classification.event_type,\n      priority: classification.priority,\n      timestamp: created_at || Date.now() / 1000\n    });\n    group.has_message = true;\n    debugLog(`✓ Added text to group: \"${message_text.substring(0, 50)}...\"`);\n  }\n  \n  // تحديث البيانات الأخرى\n  if (client_name && !group.client_name) group.client_name = client_name;\n  if (source && !group.source) group.source = source;\n  \n  // دمج معلومات Pipeline/Stage من جميع الأحداث\n  if (pipelineStageInfo.pipeline_id) {\n    group.pipeline_id = pipelineStageInfo.pipeline_id;\n    group.pipeline_name = pipelineStageInfo.pipeline_name;\n  }\n  if (pipelineStageInfo.stage_id) {\n    group.stage_id = pipelineStageInfo.stage_id;\n    group.stage_name = pipelineStageInfo.stage_name;\n  }\n  if (pipelineStageInfo.previous_stage_id) {\n    group.previous_stage_id = pipelineStageInfo.previous_stage_id;\n    group.stage_changed = pipelineStageInfo.stage_changed;\n  }\n  \n  // دمج Tags\n  tags.forEach(tag => group.tags.add(tag));\n  \n  // تحديد الأعلام\n  if (classification.event_type === 'message[add]' && message_text) {\n    group.has_message = true;\n  }\n  if (classification.event_type === 'unsorted[add]') {\n    group.is_new_lead = true;\n  }\n  \n  // التحقق من الاكتمال\n  const timeSinceFirstPulse = Date.now() - group.first_pulse_time;\n  if (group.pulses_received >= group.expected_pulses ||\n      group.pulses_received >= CONFIG.MAX_EVENTS_PER_MESSAGE ||\n      timeSinceFirstPulse > CONFIG.TIME_WINDOW * 1000) {\n    group.is_complete = true;\n    debugLog(`Group ${fingerprint} marked as complete`);\n  }\n  \n  // حفظ في الكاش\n  staticData.messageCache[fingerprint] = {\n    ...group,\n    unique_events_array: Array.from(group.unique_events),\n    timestamp: Date.now()\n  };\n});\n\n// ربط الأحداث المترابطة\nconst linkedEventGroups = crossReferenceEvents(eventGroups, staticData);\n\n// ==================\n// إنتاج النتائج النهائية\n// ==================\nconst finalResults = [];\n\nfor (const [fingerprint, group] of Object.entries(linkedEventGroups)) {\n  // التحكم في المسارات - نبضة واحدة فقط تمر\n  const isProcessed = staticData.processedGroups && staticData.processedGroups[fingerprint];\n  \n  if (isProcessed) {\n    debugLog(`Group ${fingerprint} already processed - stopping this path`);\n    continue;\n  }\n  \n  // وضع علامة كمعالج\n  if (!staticData.processedGroups) {\n    staticData.processedGroups = {};\n  }\n  staticData.processedGroups[fingerprint] = Date.now();\n  \n  // اختيار أفضل نص - مع دمج النصوص من الأحداث المختلفة\n  let finalMessageText = '';\n  if (group.message_texts.length > 0) {\n    // ترتيب حسب الأولوية والوقت\n    group.message_texts.sort((a, b) => {\n      if (b.priority !== a.priority) return b.priority - a.priority;\n      return b.timestamp - a.timestamp;\n    });\n    \n    // اختيار أطول نص من أعلى أولوية\n    const highPriorityTexts = group.message_texts.filter(t => \n      t.priority === group.message_texts[0].priority\n    );\n    \n    finalMessageText = highPriorityTexts.reduce((longest, current) => \n      current.text.length > longest.length ? current.text : longest, ''\n    );\n    \n    if (group.message_texts.length > 1) {\n      debugLog(`Multiple texts found (${group.message_texts.length}), selected: \"${finalMessageText.substring(0, 50)}...\"`);\n    }\n  }\n  \n  // تحديد نوع التدخل المطلوب\n  const intervention = determineInterventionType(\n    group.pipeline_id,\n    group.stage_id,\n    Array.from(group.tags)\n  );\n  \n  // تحديد الإجراء المطلوب\n  let action_required = 'log_only';\n  let should_respond = false;\n  \n  if (group.has_message && finalMessageText) {\n    action_required = 'process_message';\n    should_respond = true;\n  } else if (group.is_new_lead && finalMessageText) {\n    action_required = 'process_new_lead_message';\n    should_respond = true;\n  } else if (group.is_new_lead) {\n    action_required = 'welcome_new_lead';\n    should_respond = true;\n  } else if (group.stage_changed) {\n    action_required = 'stage_transition';\n    should_respond = intervention.use_ai_agent;\n  } else if (!finalMessageText && !group.is_new_lead) {\n    action_required = 'ignore';\n    should_respond = false;\n  }\n  \n  const completeness_percentage = Math.min(100,\n    Math.round((group.pulses_received / group.expected_pulses) * 100));\n  \n  let confidence_level = 'low';\n  if (completeness_percentage >= 90 && finalMessageText) {\n    confidence_level = 'high';\n  } else if (completeness_percentage >= 70 || finalMessageText) {\n    confidence_level = 'medium';\n  }\n  \n  // تتبع تاريخ المراحل\n  const stagesHistory = [];\n  if (group.previous_stage_id && group.stage_id) {\n    stagesHistory.push(group.previous_stage_id);\n    stagesHistory.push(group.stage_id);\n  } else if (group.stage_id) {\n    stagesHistory.push(group.stage_id);\n  }\n  \n  debugLog(`\\n=== Final Result for ${fingerprint} ===`);\n  debugLog(\"Message text:\", finalMessageText || \"EMPTY\");\n  debugLog(\"Lead ID:\", group.lead_id);\n  debugLog(\"Action required:\", action_required);\n  debugLog(\"Intervention type:\", intervention.type);\n  debugLog(\"Completeness:\", `${completeness_percentage}%`);\n  debugLog(\"Event types found:\", Array.from(group.unique_events));\n  \n  // سجل معرف الرسالة كمعالجة\n  if (group.message_id) {\n    staticData.processedMessages[group.message_id] = {\n      processed_at: Date.now(),\n      fingerprint: fingerprint\n    };\n  }\n  \n  // بناء النتيجة النهائية الشاملة\n  finalResults.push({\n    json: {\n      // === حقول Google Sheets بالترتيب الصحيح ===\n      group_key: fingerprint,\n      lead_id: group.lead_id || group.entity_id || '',\n      chat_id: group.conversation_id || '',\n      message_text: finalMessageText,\n      client_name: group.client_name || '',\n      \n      // event_types و events_count\n      event_types: Array.from(group.unique_events).join(', '),\n      events_count: group.pulses_received,\n      \n      // الإجراءات\n      action_required,\n      should_respond,\n      \n      // التوقيتات\n      event_time_utc: new Date(Number(group.created_at) * 1000).toISOString(),\n      received_at_utc: new Date().toISOString(),\n      \n      // unique_keys - دمج كل المعرفات الفريدة\n      unique_keys: [\n        group.message_id || '',\n        group.talk_id || '',\n        group.lead_id || '',\n        group.entity_id || ''\n      ].filter(k => k).join('_'),\n      \n      // معلومات Pipeline\n      pipeline_id: group.pipeline_id || '',\n      pipeline_name: group.pipeline_name || 'Unknown Pipeline',\n      pipeline_service: PIPELINE_CONFIG[group.pipeline_id]?.service || 'general',\n      \n      // معلومات Stage\n      stage_id: group.stage_id || '',\n      stage_name: group.stage_name || 'Initial',\n      previous_stage_id: group.previous_stage_id || '',\n      stage_changed: group.stage_changed,\n      stages_history: stagesHistory.join(' → ') || '',\n      \n      // === حقول إضافية للـ workflow ===\n      message_fingerprint: fingerprint,\n      message_id: group.message_id || '',\n      talk_id: group.talk_id || '',\n      entity_id: group.entity_id || '',\n      \n      // Pipeline object للتوافق مع الـ nodes الأخرى\n      pipeline: {\n        id: group.pipeline_id || '',\n        name: group.pipeline_name || 'Unknown Pipeline',\n        service: intervention.service\n      },\n      \n      // Stage object\n      stage: {\n        id: group.stage_id || '',\n        name: group.stage_name || 'Initial',\n        previous_id: group.previous_stage_id || '',\n        changed: group.stage_changed\n      },\n      \n      // Tags\n      tags: Array.from(group.tags),\n      has_tags: group.tags.size > 0,\n      \n      // معلومات التدخل\n      intervention: {\n        type: intervention.type,\n        use_ai_agent: intervention.use_ai_agent,\n        requires_human: intervention.requires_human,\n        priority: intervention.priority,\n        reason: intervention.reason.join('; '),\n        language: intervention.language,\n        confidence: intervention.confidence\n      },\n      \n      // معلومات إضافية\n      has_message: group.has_message,\n      is_new_lead: group.is_new_lead,\n      confidence_level,\n      pulses_received: group.pulses_received,\n      expected_pulses: group.expected_pulses,\n      completeness_percentage,\n      completeness_status: group.is_complete ? 'complete' : 'partial',\n      is_complete: group.is_complete,\n      \n      // معلومات المنصة\n      source: group.source || 'waba',\n      platform: group.platform,\n      service_type: intervention.service,\n      response_channel: group.platform === 'whatsapp' ? 'whatsapp' :\n                       group.platform === 'instagram' ? 'instagram' :\n                       group.platform === 'facebook' ? 'messenger' : 'unknown',\n      \n      // معلومات الوقت\n      aggregation_time_ms: group.last_pulse_time - group.first_pulse_time,\n      processing_time_ms: Date.now() - group.first_pulse_time,\n      \n      // التحكم في المسار\n      is_primary_record: true,\n      processed: true,\n      ready_for_processing: true,\n      deduplication_count: group.pulses_received,\n      cache_size: Object.keys(staticData.messageCache).length,\n      has_valid_content: !!finalMessageText || group.is_new_lead,\n      \n      // استراتيجية الاستجابة\n      response_strategy: {\n        type: should_respond ? 'respond' : 'log_only',\n        method: group.is_new_lead ? 'welcome' : 'process',\n        delay: 0,\n        template: null\n      },\n      \n      // التوجيه\n      routing: {\n        destination: should_respond ? 'ai_response' : 'log_only',\n        method: 'process',\n        channel: group.platform,\n        priority: intervention.priority,\n        has_ai_context: false,\n        template: null\n      },\n      \n      // معلومات Debug محسنة\n      debug_info: {\n        text_extracted: !!finalMessageText,\n        text_length: finalMessageText.length,\n        text_count: group.message_texts.length,\n        all_texts: group.message_texts.map(m => m.text).join(\" | \"),\n        all_text_sources: group.message_texts.map(m => m.event_type).join(\", \"),\n        event_types_found: Array.from(group.unique_events),\n        all_event_types: group.all_event_types,\n        max_priority: Math.max(...group.event_priorities),\n        extraction_status: finalMessageText ? 'SUCCESS' : 'NO_TEXT_FOUND',\n        fingerprint_used: fingerprint,\n        platform_detected: group.platform,\n        cache_restored: false,\n        lead_id_found: !!group.lead_id,\n        pipeline_found: !!group.pipeline_id\n      }\n    }\n  });\n  \n  // تنظيف الكاش للمجموعات المكتملة\n  if (group.is_complete) {\n    delete staticData.messageCache[fingerprint];\n  }\n}\n\ndebugLog(`\\n=== Processing Complete ===`);\ndebugLog(`Total groups: ${Object.keys(linkedEventGroups).length}`);\ndebugLog(`Final results: ${finalResults.length}`);\ndebugLog('Primary records passed:', finalResults.filter(r => r.json.is_primary_record).length);\ndebugLog(`Cache size: ${Object.keys(staticData.messageCache).length}`);\n\n// إضافة رسالة تحذيرية إذا كانت جميع الرسائل فارغة\nconst emptyMessages = finalResults.filter(r => !r.json.message_text);\nif (emptyMessages.length === finalResults.length && finalResults.length > 0) {\n  console.warn(\"⚠️ WARNING: All messages have no text content! Check webhook data structure.\");\n  console.warn(\"Event types found:\", finalResults.map(r => r.json.event_types).join(', '));\n  console.warn(\"Debug info for first result:\", finalResults[0]?.json.debug_info);\n}\n\n// إذا لم نرجع أي نتائج، أوقف المسار\nif (finalResults.length === 0) {\n  debugLog(\"No new records to process - stopping workflow\");\n  return [];\n}\n\nreturn finalResults;"
+      },
+      "id": "1abc748f-2c02-4956-8a73-70136a9d862f",
+      "name": "Process & Deduplicate Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1152,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// التحقق من اكتمال الرسالة وإعادة التجميع النهائي - النسخة المحدثة الشاملة\n// ================================================================\n// Version: 4.0 - محدث للتوافق مع نظام استخراج النصوص المحسّن\n// التحديثات: دمج أفضل للنصوص، تقييم محسن للاكتمال، ربط أذكى للأحداث\n\n// ==================\n// الإعدادات والتكوينات\n// ==================\nconst CONFIG = {\n  // عتبات الثقة\n  MIN_CONFIDENCE_FOR_AI: 70,     \n  MIN_CONFIDENCE_FOR_BOT: 50,    \n  TEXT_MERGE_THRESHOLD: 0.8,     // عتبة تشابه النصوص للدمج\n  \n  // أوزان تقييم الاكتمال\n  COMPLETENESS_WEIGHTS: {\n    has_text: 40,               // وزن وجود النص\n    has_pipeline: 20,           // وزن معلومات Pipeline\n    has_stage: 15,              // وزن معلومات Stage\n    has_lead_id: 15,           // وزن معرف Lead\n    has_tags: 5,                // وزن Tags\n    pulse_count: 5              // وزن عدد النبضات\n  },\n  \n  // أوزان الأولوية\n  PRIORITY_WEIGHT: {              \n    critical: 100,\n    high: 75,\n    normal: 50,\n    low: 25\n  },\n  \n  // إعدادات دمج النصوص\n  TEXT_PROCESSING: {\n    min_length: 2,              // الحد الأدنى لطول النص\n    max_length: 5000,           // الحد الأقصى لطول النص\n    remove_duplicates: true,    // إزالة النصوص المكررة\n    merge_similar: true,        // دمج النصوص المتشابهة\n    preserve_order: true        // الحفاظ على ترتيب النصوص\n  },\n  \n  DEBUG_MODE: true               \n};\n\n// تكوينات الـ Pipelines - متطابقة مع الكود الأول\nconst PIPELINE_CONFIG = {\n  '10794139': {\n    name: 'Sales Pipeline',\n    service: 'sales',\n    default_language: 'ar',\n    auto_escalate_stages: ['10794144'],\n    initial_stage: '82771955',\n    initial_stage_name: 'Initial',\n    ai_stages: ['10794142', '10794143'],\n    bot_stages: ['10794140', '10794141'],\n    critical_stages: ['10794144']\n  },\n  '10794150': {\n    name: 'Support Pipeline', \n    service: 'support',\n    default_language: 'ar',\n    auto_escalate_stages: ['10794154'],\n    ai_stages: ['10794152', '10794153'],\n    bot_stages: ['10794151'],\n    critical_stages: ['10794154']\n  },\n  '10794160': {\n    name: 'Onboarding Pipeline',\n    service: 'onboarding',\n    default_language: 'en',\n    auto_escalate_stages: [],\n    ai_stages: ['10794162'],\n    bot_stages: ['10794161', '10794163'],\n    critical_stages: []\n  }\n};\n\n// قواعد Tags - متطابقة مع الكود الأول\nconst TAG_RULES = {\n  ai_required: ['vip', 'urgent', 'complex', 'ai-assist', 'premium', 'enterprise', 'priority'],\n  bot_only: ['simple', 'faq', 'auto-reply', 'bot-handled', 'no-ai', 'standard', 'routine'],\n  human_required: ['complaint', 'escalation', 'legal', 'refund', 'critical', 'emergency', 'manual'],\n  language: {\n    'ar': 'arabic',\n    'en': 'english',\n    'es': 'spanish',\n    'fr': 'french'\n  }\n};\n\n// ==================\n// دوال مساعدة محسنة\n// ==================\n\nfunction debugLog(...args) {\n  if (CONFIG.DEBUG_MODE) {\n    console.log(...args);\n  }\n}\n\n// دالة محسنة لحساب تشابه النصوص\nfunction calculateTextSimilarity(text1, text2) {\n  if (!text1 || !text2) return 0;\n  \n  const normalize = (str) => str.toLowerCase().replace(/[^\\w\\sء-ي]/g, '').trim();\n  const norm1 = normalize(text1);\n  const norm2 = normalize(text2);\n  \n  if (norm1 === norm2) return 1;\n  \n  // حساب Levenshtein distance\n  const matrix = [];\n  for (let i = 0; i <= norm2.length; i++) {\n    matrix[i] = [i];\n  }\n  for (let j = 0; j <= norm1.length; j++) {\n    matrix[0][j] = j;\n  }\n  for (let i = 1; i <= norm2.length; i++) {\n    for (let j = 1; j <= norm1.length; j++) {\n      if (norm2.charAt(i - 1) === norm1.charAt(j - 1)) {\n        matrix[i][j] = matrix[i - 1][j - 1];\n      } else {\n        matrix[i][j] = Math.min(\n          matrix[i - 1][j - 1] + 1,\n          matrix[i][j - 1] + 1,\n          matrix[i - 1][j] + 1\n        );\n      }\n    }\n  }\n  \n  const distance = matrix[norm2.length][norm1.length];\n  const maxLength = Math.max(norm1.length, norm2.length);\n  return 1 - (distance / maxLength);\n}\n\n// دالة محسنة لدمج النصوص المتعددة\nfunction mergeMessageTexts(messageTexts) {\n  if (!messageTexts || messageTexts.length === 0) return '';\n  \n  // إذا كان نص واحد فقط\n  if (messageTexts.length === 1) {\n    return messageTexts[0].text || messageTexts[0];\n  }\n  \n  // ترتيب النصوص حسب الأولوية والوقت\n  const sortedTexts = messageTexts.sort((a, b) => {\n    // إذا كان كائن بمعلومات إضافية\n    if (typeof a === 'object' && typeof b === 'object') {\n      if (b.priority !== a.priority) return b.priority - a.priority;\n      return b.timestamp - a.timestamp;\n    }\n    return 0;\n  });\n  \n  // استخراج النصوص الفعلية\n  const texts = sortedTexts.map(item => \n    typeof item === 'string' ? item : item.text || ''\n  ).filter(text => text && text.trim());\n  \n  if (texts.length === 0) return '';\n  \n  // إزالة النصوص المكررة أو المتشابهة جداً\n  const uniqueTexts = [];\n  for (const text of texts) {\n    const isDuplicate = uniqueTexts.some(existing => \n      calculateTextSimilarity(existing, text) > CONFIG.TEXT_MERGE_THRESHOLD\n    );\n    if (!isDuplicate) {\n      uniqueTexts.push(text);\n    }\n  }\n  \n  // إذا كان هناك نص واحد فريد فقط\n  if (uniqueTexts.length === 1) {\n    return uniqueTexts[0];\n  }\n  \n  // البحث عن النص الأكثر شمولية\n  let mostComprehensive = uniqueTexts[0];\n  for (const text of uniqueTexts) {\n    // النص الأطول غالباً ما يكون الأكثر شمولية\n    if (text.length > mostComprehensive.length) {\n      // تحقق من أن النص الأطول يحتوي على معلومات مفيدة\n      const hasMoreInfo = text.split(/\\s+/).length > mostComprehensive.split(/\\s+/).length * 1.2;\n      if (hasMoreInfo) {\n        mostComprehensive = text;\n      }\n    }\n  }\n  \n  // إذا كانت النصوص مختلفة تماماً، دمجها\n  const similarity = calculateTextSimilarity(uniqueTexts[0], uniqueTexts[uniqueTexts.length - 1]);\n  if (similarity < 0.5 && uniqueTexts.length <= 3) {\n    // دمج النصوص المختلفة كمحادثة\n    return uniqueTexts.join(' | ');\n  }\n  \n  return mostComprehensive;\n}\n\n// دالة محسنة لحساب درجة الاكتمال\nfunction calculateCompleteness(data, group) {\n  let score = 0;\n  const weights = CONFIG.COMPLETENESS_WEIGHTS;\n  \n  // تقييم وجود النص\n  if (data.message_text && data.message_text.trim().length > 2) {\n    const textQuality = Math.min(100, data.message_text.length / 2);\n    score += weights.has_text * (textQuality / 100);\n  }\n  \n  // تقييم معلومات Pipeline\n  if (data.pipeline_id || data.pipeline?.id) {\n    score += weights.has_pipeline;\n    // نقاط إضافية إذا كان Pipeline معروف\n    if (PIPELINE_CONFIG[data.pipeline_id || data.pipeline?.id]) {\n      score += 5;\n    }\n  }\n  \n  // تقييم معلومات Stage\n  if (data.stage_id || data.stage?.id) {\n    score += weights.has_stage;\n    // نقاط إضافية للتحولات\n    if (data.stage_changed || data.stage?.changed) {\n      score += 5;\n    }\n  }\n  \n  // تقييم معرف Lead\n  if (data.lead_id) {\n    score += weights.has_lead_id;\n  }\n  \n  // تقييم Tags\n  if (data.tags && data.tags.length > 0) {\n    const tagScore = Math.min(weights.has_tags, data.tags.length * 2);\n    score += tagScore;\n  }\n  \n  // تقييم عدد النبضات\n  const pulseScore = Math.min(weights.pulse_count, \n    (group.total_pulses / (data.expected_pulses || 4)) * weights.pulse_count\n  );\n  score += pulseScore;\n  \n  // نقاط إضافية للبيانات المكملة\n  if (data.client_name) score += 3;\n  if (data.chat_id || data.conversation_id) score += 3;\n  if (data.entity_id) score += 2;\n  if (data.message_id) score += 2;\n  \n  return Math.min(100, Math.round(score));\n}\n\n// دالة محسنة لتحديد مستوى الثقة\nfunction determineConfidenceLevel(completeness, validation, hasMultipleSources) {\n  // الثقة العالية\n  if (completeness >= 85 && validation.isValid && hasMultipleSources) {\n    return 'very_high';\n  }\n  if (completeness >= 75 && validation.isValid) {\n    return 'high';\n  }\n  \n  // الثقة المتوسطة\n  if (completeness >= 60 || (validation.isValid && completeness >= 50)) {\n    return 'medium';\n  }\n  \n  // الثقة المنخفضة\n  if (completeness >= 40 || validation.isValid) {\n    return 'low';\n  }\n  \n  return 'very_low';\n}\n\n// دالة لحساب الأولوية النهائية المحسنة\nfunction calculateFinalPriority(intervention, completeness, hasMessage, tags) {\n  let priorityScore = CONFIG.PRIORITY_WEIGHT[intervention.priority] || 50;\n  \n  // تعديل بناءً على الاكتمال\n  if (completeness < 50) {\n    priorityScore *= 0.7;\n  } else if (completeness >= 90) {\n    priorityScore *= 1.3;\n  } else if (completeness >= 75) {\n    priorityScore *= 1.1;\n  }\n  \n  // زيادة الأولوية للرسائل\n  if (hasMessage) {\n    priorityScore += 15;\n  }\n  \n  // زيادة للتدخل البشري\n  if (intervention.requires_human) {\n    priorityScore += 30;\n  }\n  \n  // زيادة لـ AI Agent\n  if (intervention.use_ai_agent) {\n    priorityScore += 10;\n  }\n  \n  // تعديل بناءً على Tags\n  if (tags && tags.length > 0) {\n    if (tags.includes('urgent') || tags.includes('emergency')) {\n      priorityScore += 25;\n    }\n    if (tags.includes('vip') || tags.includes('premium')) {\n      priorityScore += 20;\n    }\n    if (tags.includes('complaint') || tags.includes('escalation')) {\n      priorityScore += 15;\n    }\n  }\n  \n  // تحديد الأولوية النهائية\n  if (priorityScore >= 90) return 'critical';\n  if (priorityScore >= 65) return 'high';\n  if (priorityScore >= 40) return 'normal';\n  return 'low';\n}\n\n// دالة محسنة لتحديد نوع الاستجابة\nfunction determineResponseType(data, confidence, completeness) {\n  const response = {\n    type: 'none',\n    method: 'none',\n    delay: 0,\n    template: null,\n    confidence_required: 'medium'\n  };\n  \n  // إذا لا يوجد محتوى صالح\n  if (!data.has_valid_content && !data.is_new_lead && !data.stage?.changed) {\n    response.type = 'log_only';\n    response.method = 'store';\n    return response;\n  }\n  \n  // تحديد بناءً على التدخل المطلوب\n  if (data.intervention) {\n    if (data.intervention.requires_human) {\n      response.type = 'human_escalation';\n      response.method = 'notify_team';\n      response.delay = 0;\n      response.template = 'escalation_required';\n      response.confidence_required = 'low'; // التصعيد لا يحتاج ثقة عالية\n    } else if (data.intervention.use_ai_agent) {\n      // تحديد مستوى AI بناءً على الثقة\n      if (confidence === 'very_high' || confidence === 'high') {\n        response.type = 'ai_response';\n        response.method = 'ai_agent_full';\n        response.delay = 1500;\n        response.template = 'ai_contextual';\n      } else if (confidence === 'medium' && completeness >= CONFIG.MIN_CONFIDENCE_FOR_AI) {\n        response.type = 'ai_response_guided';\n        response.method = 'ai_agent_supervised';\n        response.delay = 3000;\n        response.template = 'ai_with_confirmation';\n      } else {\n        response.type = 'ai_with_fallback';\n        response.method = 'ai_agent_limited';\n        response.delay = 5000;\n        response.template = 'ai_safe_mode';\n        response.confidence_required = 'high';\n      }\n    } else {\n      // البوت العادي\n      if (completeness >= CONFIG.MIN_CONFIDENCE_FOR_BOT && confidence !== 'very_low') {\n        response.type = 'bot_response';\n        response.method = 'standard_bot';\n        response.delay = 1000;\n        response.template = 'bot_standard';\n      } else {\n        response.type = 'queue_for_review';\n        response.method = 'add_to_queue';\n        response.delay = 0;\n        response.template = 'queued';\n      }\n    }\n  }\n  \n  // تعديلات خاصة بناءً على السياق\n  if (data.is_new_lead) {\n    if (response.type === 'none' || response.type === 'log_only') {\n      response.type = 'welcome_message';\n      response.method = 'send_welcome';\n      response.delay = 500;\n      response.template = 'welcome_new_lead';\n    }\n  }\n  \n  if (data.stage?.changed && PIPELINE_CONFIG[data.pipeline?.id]) {\n    const config = PIPELINE_CONFIG[data.pipeline.id];\n    if (config.auto_escalate_stages?.includes(data.stage.id)) {\n      response.type = 'auto_escalation';\n      response.method = 'escalate_to_team';\n      response.delay = 0;\n    }\n  }\n  \n  // تعديل بناءً على Tags الحرجة\n  if (data.tags?.includes('emergency')) {\n    response.delay = 0;\n    if (response.type === 'bot_response') {\n      response.type = 'ai_response';\n      response.method = 'ai_agent_emergency';\n    }\n  }\n  \n  return response;\n}\n\n// دالة للتحقق من صحة المحتوى - محسنة\nfunction validateMessageContent(text) {\n  if (!text || text.trim() === '') {\n    return {\n      isValid: false,\n      reason: 'empty_text',\n      confidence: 0,\n      quality: 'none'\n    };\n  }\n  \n  const trimmed = text.trim();\n  \n  // فحوصات الرفض\n  if (/^\\d+$/.test(trimmed)) {\n    return {\n      isValid: false,\n      reason: 'numbers_only',\n      confidence: 0,\n      quality: 'invalid'\n    };\n  }\n  \n  if (trimmed.length < CONFIG.TEXT_PROCESSING.min_length) {\n    return {\n      isValid: false,\n      reason: 'too_short',\n      confidence: 0,\n      quality: 'invalid'\n    };\n  }\n  \n  if (!/[a-zA-Zء-ي]/.test(trimmed)) {\n    return {\n      isValid: false,\n      reason: 'no_letters',\n      confidence: 0,\n      quality: 'invalid'\n    };\n  }\n  \n  // فحوصات URLs وغيرها\n  if (/^https?:\\/\\//.test(trimmed) && trimmed.split(/\\s+/).length <= 3) {\n    return {\n      isValid: false,\n      reason: 'url_only',\n      confidence: 0,\n      quality: 'invalid'\n    };\n  }\n  \n  // تقييم جودة النص\n  let quality = 'low';\n  let confidence = 60;\n  \n  if (trimmed.length > 20) {\n    quality = 'medium';\n    confidence = 80;\n  }\n  \n  if (trimmed.length > 50 && trimmed.split(/\\s+/).length > 5) {\n    quality = 'high';\n    confidence = 95;\n  }\n  \n  if (trimmed.length > 100 && trimmed.split(/\\s+/).length > 10) {\n    quality = 'excellent';\n    confidence = 100;\n  }\n  \n  return {\n    isValid: true,\n    reason: 'valid',\n    confidence,\n    quality,\n    length: trimmed.length,\n    word_count: trimmed.split(/\\s+/).length\n  };\n}\n\n// دالة لتحديد القناة - محسنة\nfunction determineResponseChannel(data) {\n  // تحديد من platform إذا كان موجود\n  if (data.platform) {\n    const platformMap = {\n      'whatsapp': 'whatsapp',\n      'instagram': 'instagram',\n      'facebook': 'messenger',\n      'telegram': 'telegram',\n      'webchat': 'webchat'\n    };\n    if (platformMap[data.platform]) {\n      return platformMap[data.platform];\n    }\n  }\n  \n  // تحديد من source\n  const source = (data.source || '').toLowerCase();\n  if (source.includes('waba') || source.includes('whatsapp')) return 'whatsapp';\n  if (source.includes('instagram') || source.includes('ig')) return 'instagram';\n  if (source.includes('facebook') || source.includes('fb')) return 'messenger';\n  if (source.includes('telegram') || source.includes('tg')) return 'telegram';\n  if (source.includes('web')) return 'webchat';\n  \n  // تحديد من chat_id\n  if (data.chat_id) {\n    if (data.chat_id.includes('wa')) return 'whatsapp';\n    if (data.chat_id.includes('ig')) return 'instagram';\n    if (data.chat_id.includes('fb')) return 'messenger';\n    if (data.chat_id.includes('tg')) return 'telegram';\n  }\n  \n  // تحديد من response_channel إذا كان موجود\n  if (data.response_channel) {\n    return data.response_channel;\n  }\n  \n  return 'unknown';\n}\n\n// دالة محسنة لبناء سياق AI\nfunction buildAIContext(data, validation, completeness) {\n  const context = {\n    customer: {\n      name: data.client_name || 'عميل',\n      id: data.lead_id || data.entity_id,\n      tags: data.tags || [],\n      language: data.intervention?.language || 'ar',\n      is_new: data.is_new_lead || false,\n      history: {\n        has_previous_interactions: !!data.previous_stage_id,\n        stage_transitions: data.stages_history || ''\n      }\n    },\n    conversation: {\n      message: data.message_text,\n      message_quality: validation.quality || 'unknown',\n      channel: determineResponseChannel(data),\n      chat_id: data.chat_id || data.conversation_id,\n      platform: data.platform || 'unknown',\n      event_types: data.event_types || '',\n      pulses_received: data.final_pulse_count || data.pulses_received || 1\n    },\n    business: {\n      pipeline: {\n        id: data.pipeline?.id || data.pipeline_id,\n        name: data.pipeline?.name || data.pipeline_name || 'General',\n        service: data.pipeline?.service || 'general'\n      },\n      stage: {\n        id: data.stage?.id || data.stage_id,\n        name: data.stage?.name || data.stage_name || 'Initial',\n        previous_id: data.stage?.previous_id || data.previous_stage_id,\n        changed: data.stage?.changed || data.stage_changed || false\n      }\n    },\n    metadata: {\n      timestamp: data.event_time_utc || new Date().toISOString(),\n      priority: data.final_priority || data.intervention?.priority || 'normal',\n      confidence: data.confidence_level,\n      completeness: completeness,\n      is_new_lead: data.is_new_lead || false,\n      has_valid_content: data.has_valid_content || false,\n      action_required: data.action_required\n    },\n    instructions: {\n      tone: 'professional_friendly',\n      language: data.intervention?.language || 'ar',\n      max_length: 500,\n      include_cta: true,\n      response_format: 'conversational',\n      use_emojis: false,\n      personalization_level: 'medium'\n    }\n  };\n  \n  // تخصيص التعليمات بناءً على السياق\n  if (data.is_new_lead) {\n    context.instructions.greeting_type = 'warm_welcome';\n    context.instructions.introduce_services = true;\n    context.instructions.ask_how_to_help = true;\n  }\n  \n  if (data.stage?.changed) {\n    context.instructions.acknowledge_progress = true;\n    context.instructions.reference_previous_stage = true;\n  }\n  \n  // تعديل بناءً على Tags\n  if (data.tags) {\n    if (data.tags.includes('complaint') || data.tags.includes('escalation')) {\n      context.instructions.tone = 'empathetic_professional';\n      context.instructions.acknowledge_concern = true;\n      context.instructions.offer_resolution = true;\n    }\n    \n    if (data.tags.includes('vip') || data.tags.includes('premium')) {\n      context.instructions.tone = 'premium_service';\n      context.instructions.personalization_level = 'high';\n      context.instructions.priority_treatment = true;\n    }\n    \n    if (data.tags.includes('technical') || data.tags.includes('support')) {\n      context.instructions.include_technical_details = true;\n      context.instructions.provide_steps = true;\n    }\n  }\n  \n  // تعديل بناءً على جودة النص\n  if (validation.quality === 'low' || validation.quality === 'invalid') {\n    context.instructions.ask_for_clarification = true;\n    context.instructions.suggest_options = true;\n  }\n  \n  // تعديل بناءً على القناة\n  if (context.conversation.channel === 'whatsapp') {\n    context.instructions.format_for_whatsapp = true;\n    context.instructions.use_whatsapp_formatting = true;\n  }\n  \n  return context;\n}\n\n// دالة لإعادة بناء تدفق المحادثة\nfunction reconstructConversationFlow(group) {\n  const flow = {\n    events_timeline: [],\n    text_sequence: [],\n    stage_transitions: [],\n    has_coherent_flow: false,\n    conversation_type: 'unknown'\n  };\n  \n  // بناء خط زمني للأحداث\n  if (group.items && group.items.length > 0) {\n    group.items.forEach(item => {\n      const data = item.json;\n      flow.events_timeline.push({\n        event_type: data.event_types || data.event_type || 'unknown',\n        timestamp: data.event_time_utc || data.created_at,\n        has_text: !!data.message_text,\n        text_preview: data.message_text ? data.message_text.substring(0, 50) : '',\n        stage: data.stage_id || data.stage?.id,\n        pipeline: data.pipeline_id || data.pipeline?.id\n      });\n    });\n    \n    // ترتيب الأحداث زمنياً\n    flow.events_timeline.sort((a, b) => \n      new Date(a.timestamp) - new Date(b.timestamp)\n    );\n  }\n  \n  // استخراج تسلسل النصوص\n  if (group.message_texts && group.message_texts.length > 0) {\n    flow.text_sequence = group.message_texts.map(msg => ({\n      text: typeof msg === 'string' ? msg : msg.text,\n      source: typeof msg === 'object' ? msg.event_type : 'unknown',\n      priority: typeof msg === 'object' ? msg.priority : 0\n    }));\n  }\n  \n  // تتبع تحولات المراحل\n  const stages = new Set();\n  group.items.forEach(item => {\n    const stageId = item.json.stage_id || item.json.stage?.id;\n    if (stageId) stages.add(stageId);\n  });\n  flow.stage_transitions = Array.from(stages);\n  \n  // تحديد نوع المحادثة\n  if (group.items.some(item => item.json.is_new_lead)) {\n    flow.conversation_type = 'new_lead';\n  } else if (flow.stage_transitions.length > 1) {\n    flow.conversation_type = 'progressing';\n  } else if (flow.text_sequence.length > 0) {\n    flow.conversation_type = 'ongoing';\n  }\n  \n  // تقييم تماسك التدفق\n  flow.has_coherent_flow = (\n    flow.events_timeline.length > 0 &&\n    (flow.text_sequence.length > 0 || flow.conversation_type === 'new_lead')\n  );\n  \n  return flow;\n}\n\n// ==================\n// المعالج الرئيسي المحسن\n// ==================\n\nconst staticData = $getWorkflowStaticData('global');\nconst messageGroups = {};\n\ndebugLog(\"=== Starting Enhanced Message Completeness Check ===\");\ndebugLog(`Processing ${items.length} items`);\n\n// تجميع كل الرسائل حسب fingerprint مع معالجة محسنة\nitems.forEach((item, index) => {\n  const fingerprint = item.json.message_fingerprint || item.json.group_key;\n  \n  if (!fingerprint) {\n    debugLog(`Warning: Item ${index} without fingerprint`, item.json);\n    return;\n  }\n  \n  if (!messageGroups[fingerprint]) {\n    messageGroups[fingerprint] = {\n      items: [],\n      total_pulses: 0,\n      expected_pulses: 0,\n      latest_data: null,\n      highest_priority: null,\n      all_tags: new Set(),\n      all_stages: new Set(),\n      all_pipelines: new Set(),\n      message_texts: [],\n      all_texts: [],\n      validation_results: [],\n      event_types: new Set(),\n      has_multiple_sources: false,\n      first_timestamp: null,\n      last_timestamp: null\n    };\n  }\n  \n  const group = messageGroups[fingerprint];\n  group.items.push(item);\n  \n  // تحديث عدد النبضات\n  group.total_pulses += item.json.pulses_received || 1;\n  group.expected_pulses = Math.max(\n    group.expected_pulses, \n    item.json.expected_pulses || 0\n  );\n  \n  // تحديث التوقيتات\n  const timestamp = item.json.event_time_utc || item.json.created_at;\n  if (timestamp) {\n    if (!group.first_timestamp || timestamp < group.first_timestamp) {\n      group.first_timestamp = timestamp;\n    }\n    if (!group.last_timestamp || timestamp > group.last_timestamp) {\n      group.last_timestamp = timestamp;\n    }\n  }\n  \n  // جمع كل النصوص مع معلومات إضافية\n  if (item.json.message_text && item.json.message_text.trim() !== '') {\n    const validation = validateMessageContent(item.json.message_text);\n    group.message_texts.push({\n      text: item.json.message_text,\n      event_type: item.json.event_types || item.json.event_type || 'unknown',\n      priority: item.json.priority || 0,\n      timestamp: timestamp,\n      validation: validation,\n      source_index: index\n    });\n    group.validation_results.push(validation);\n  }\n  \n  // جمع كل النصوص من debug_info إذا كانت موجودة\n  if (item.json.debug_info?.all_texts) {\n    const debugTexts = item.json.debug_info.all_texts.split(\" | \");\n    debugTexts.forEach(text => {\n      if (text && text.trim()) {\n        group.all_texts.push(text.trim());\n      }\n    });\n  }\n  \n  // جمع Tags من كل النبضات\n  if (item.json.tags && Array.isArray(item.json.tags)) {\n    item.json.tags.forEach(tag => group.all_tags.add(tag));\n  }\n  if (item.json.all_tags_collected) {\n    item.json.all_tags_collected.forEach(tag => group.all_tags.add(tag));\n  }\n  \n  // تتبع المراحل والـ Pipelines\n  if (item.json.stage_id || item.json.stage?.id) {\n    group.all_stages.add(item.json.stage_id || item.json.stage.id);\n  }\n  if (item.json.pipeline_id || item.json.pipeline?.id) {\n    group.all_pipelines.add(item.json.pipeline_id || item.json.pipeline.id);\n  }\n  \n  // جمع أنواع الأحداث\n  if (item.json.event_types) {\n    item.json.event_types.split(',').forEach(type => \n      group.event_types.add(type.trim())\n    );\n  }\n  if (item.json.unique_events) {\n    item.json.unique_events.forEach(type => group.event_types.add(type));\n  }\n  \n  // تحديد إذا كان هناك مصادر متعددة\n  if (group.event_types.size > 1) {\n    group.has_multiple_sources = true;\n  }\n  \n  // احتفظ بأحدث البيانات الأكثر اكتمالاً\n  const currentData = group.latest_data;\n  const newData = item.json;\n  \n  if (!currentData || \n      newData.completeness_percentage > (currentData.completeness_percentage || 0) ||\n      newData.pulses_received > (currentData.pulses_received || 0) ||\n      (newData.message_text && !currentData.message_text) ||\n      (newData.pipeline_id && !currentData.pipeline_id) ||\n      (newData.lead_id && !currentData.lead_id)) {\n    group.latest_data = newData;\n  }\n  \n  // تتبع أعلى أولوية\n  if (newData.intervention?.priority || newData.final_priority) {\n    const priority = newData.final_priority || newData.intervention.priority;\n    const priorities = ['low', 'normal', 'high', 'critical'];\n    const currentPriorityIndex = priorities.indexOf(group.highest_priority || 'low');\n    const newPriorityIndex = priorities.indexOf(priority);\n    \n    if (newPriorityIndex > currentPriorityIndex) {\n      group.highest_priority = priority;\n    }\n  }\n});\n\ndebugLog(`Found ${Object.keys(messageGroups).length} unique message groups`);\n\n// ==================\n// إنتاج النتائج النهائية المحسنة\n// ==================\nconst finalMessages = [];\n\nfor (const [fingerprint, group] of Object.entries(messageGroups)) {\n  const data = group.latest_data;\n  \n  if (!data) {\n    debugLog(`Warning: No data for fingerprint ${fingerprint}`);\n    continue;\n  }\n  \n  // دمج النصوص بالطريقة المحسنة\n  let bestMessageText = '';\n  if (group.message_texts.length > 0 || group.all_texts.length > 0) {\n    // دمج كل النصوص المتاحة\n    const allAvailableTexts = [\n      ...group.message_texts,\n      ...group.all_texts.map(text => ({ text, priority: 0, event_type: 'extracted' }))\n    ];\n    \n    bestMessageText = mergeMessageTexts(allAvailableTexts);\n  }\n  \n  // إذا لم نجد نص، استخدم النص من البيانات الأصلية\n  if (!bestMessageText && data.message_text) {\n    bestMessageText = data.message_text;\n  }\n  \n  // التحقق من صحة النص النهائي\n  const finalValidation = validateMessageContent(bestMessageText);\n  \n  debugLog(`\\n=== Processing Enhanced Group: ${fingerprint} ===`);\n  debugLog(`Final message text: \"${bestMessageText?.substring(0, 100)}...\"`);\n  debugLog(`Text validation:`, finalValidation);\n  debugLog(`Total pulses: ${group.total_pulses}`);\n  debugLog(`Event types: ${Array.from(group.event_types).join(', ')}`);\n  debugLog(`Tags collected: ${Array.from(group.all_tags).join(', ')}`);\n  debugLog(`Stages found: ${Array.from(group.all_stages).join(', ')}`);\n  debugLog(`Has multiple sources: ${group.has_multiple_sources}`);\n  \n  // إعادة بناء تدفق المحادثة\n  const conversationFlow = reconstructConversationFlow(group);\n  \n  // تحديث البيانات المجمعة\n  if (group.all_tags.size > 0) {\n    data.tags = Array.from(group.all_tags);\n  }\n  \n  // حساب الاكتمال المحسن\n  const completeness = calculateCompleteness(\n    {...data, message_text: bestMessageText}, \n    group\n  );\n  \n  // تحديد مستوى الثقة المحسن\n  const confidence_level = determineConfidenceLevel(\n    completeness,\n    finalValidation,\n    group.has_multiple_sources\n  );\n  \n  // تحديد معلومات Pipeline/Stage النهائية\n  let finalPipeline = data.pipeline || {};\n  let finalStage = data.stage || {};\n  \n  // إذا كان هناك pipelines متعددة، اختر الأحدث\n  if (group.all_pipelines.size > 0) {\n    const pipelineId = Array.from(group.all_pipelines)[group.all_pipelines.size - 1];\n    if (PIPELINE_CONFIG[pipelineId]) {\n      finalPipeline = {\n        id: pipelineId,\n        name: PIPELINE_CONFIG[pipelineId].name,\n        service: PIPELINE_CONFIG[pipelineId].service\n      };\n    }\n  }\n  \n  // بناء تاريخ المراحل\n  const stagesHistory = Array.from(group.all_stages).join(' → ') || \n                        data.stages_history || \n                        '';\n  \n  // التحقق من صلاحية البيانات\n  const hasValidContent = !!(\n    finalValidation.isValid || \n    data.is_new_lead || \n    data.stage_changed ||\n    conversationFlow.has_coherent_flow ||\n    (data.lead_id && data.action_required !== 'ignore')\n  );\n  \n  // تحديد نوع الاستجابة المحسن\n  const responseStrategy = determineResponseType(\n    {...data, has_valid_content: hasValidContent},\n    confidence_level,\n    completeness\n  );\n  \n  // تحديد الأولوية النهائية المحسنة\n  const finalPriority = calculateFinalPriority(\n    data.intervention || { priority: group.highest_priority || 'normal' },\n    completeness,\n    finalValidation.isValid,\n    Array.from(group.all_tags)\n  );\n  \n  // بناء سياق AI المحسن\n  let aiContext = null;\n  if (responseStrategy.method.includes('ai')) {\n    aiContext = buildAIContext(\n      {...data, message_text: bestMessageText, tags: Array.from(group.all_tags)},\n      finalValidation,\n      completeness\n    );\n  }\n  \n  // تحديد القناة النهائية\n  const responseChannel = determineResponseChannel(data);\n  \n  // تحديد الإجراء المطلوب النهائي\n  let action_required = data.action_required || 'log_only';\n  let should_respond = data.should_respond || false;\n  \n  // تعديل الإجراء بناءً على التحليل الشامل\n  if (!finalValidation.isValid && !data.is_new_lead) {\n    if (conversationFlow.conversation_type === 'new_lead') {\n      action_required = 'welcome_despite_no_text';\n      should_respond = true;\n    } else if (completeness >= 60 && data.lead_id) {\n      action_required = 'request_clarification';\n      should_respond = true;\n    } else {\n      action_required = 'invalid_message';\n      should_respond = false;\n    }\n  } else if (finalValidation.isValid) {\n    if (!data.action_required || data.action_required === 'log_only') {\n      action_required = 'process_message';\n      should_respond = true;\n    }\n  }\n  \n  // بناء النتيجة النهائية الشاملة والمحسنة\n  finalMessages.push({\n    json: {\n      // === البيانات الأساسية المحسنة ===\n      ...data,\n      \n      // === النص والمحتوى المحسن ===\n      message_text: bestMessageText,\n      original_message_text: data.message_text || '',\n      merged_texts_count: group.message_texts.length + group.all_texts.length,\n      \n      // === معلومات الصحة والجودة ===\n      text_validation: finalValidation,\n      has_valid_text: finalValidation.isValid,\n      text_quality: finalValidation.quality || 'unknown',\n      \n      // === معلومات الاكتمال المحسنة ===\n      final_pulse_count: group.total_pulses,\n      expected_pulses: group.expected_pulses || data.expected_pulses || 1,\n      completeness_score: completeness,\n      completeness_percentage: completeness,\n      confidence_level,\n      confidence_factors: {\n        has_text: finalValidation.isValid,\n        has_pipeline: !!finalPipeline.id,\n        has_stage: !!finalStage.id,\n        has_lead_id: !!data.lead_id,\n        has_multiple_sources: group.has_multiple_sources,\n        pulse_ratio: group.total_pulses / (group.expected_pulses || 1)\n      },\n      \n      // === معلومات Pipeline/Stage المحسنة ===\n      pipeline: finalPipeline,\n      stage: finalStage,\n      stages_history: stagesHistory,\n      all_pipelines: Array.from(group.all_pipelines),\n      all_stages: Array.from(group.all_stages),\n      \n      // === Tags المحسنة ===\n      tags: Array.from(group.all_tags),\n      tags_count: group.all_tags.size,\n      has_critical_tags: Array.from(group.all_tags).some(tag => \n        TAG_RULES.human_required.includes(tag) || \n        tag === 'urgent' || \n        tag === 'emergency'\n      ),\n      \n      // === معلومات التدخل المحسنة ===\n      intervention: {\n        ...data.intervention,\n        priority: finalPriority,\n        confidence: confidence_level,\n        completeness_based: true\n      },\n      \n      // === استراتيجية الاستجابة المحسنة ===\n      response_strategy: responseStrategy,\n      response_channel: responseChannel,\n      final_priority: finalPriority,\n      \n      // === سياق AI المحسن ===\n      ai_context: aiContext,\n      \n      // === تدفق المحادثة ===\n      conversation_flow: conversationFlow,\n      \n      // === معلومات الخدمة المحسنة ===\n      service_type: finalPipeline.service || data.service_type || 'general',\n      pipeline_name: finalPipeline.name || data.pipeline_name || 'Unknown',\n      requires_human: responseStrategy.type === 'human_escalation',\n      use_ai_agent: responseStrategy.method.includes('ai'),\n      \n      // === معلومات المعالجة النهائية ===\n      action_required,\n      should_respond,\n      response_confidence_required: responseStrategy.confidence_required || 'medium',\n      \n      // === التوقيتات المحسنة ===\n      aggregation_completed_at: new Date().toISOString(),\n      processing_duration_ms: group.last_timestamp && group.first_timestamp ? \n        new Date(group.last_timestamp) - new Date(group.first_timestamp) : 0,\n      response_delay_ms: responseStrategy.delay,\n      \n      // === الحالة النهائية ===\n      ready_for_processing: true,\n      deduplication_count: group.items.length,\n      has_valid_content: hasValidContent,\n      is_complete: completeness >= 75,\n      \n      // === معلومات التوجيه المحسنة ===\n      routing: {\n        destination: responseStrategy.type,\n        method: responseStrategy.method,\n        channel: responseChannel,\n        priority: finalPriority,\n        has_ai_context: !!aiContext,\n        template: responseStrategy.template,\n        requires_review: confidence_level === 'low' || confidence_level === 'very_low'\n      },\n      \n      // === معلومات Debug المحسنة والشاملة ===\n      debug_info: {\n        // معلومات النص\n        text_extracted: finalValidation.isValid,\n        text_length: bestMessageText.length,\n        text_word_count: bestMessageText.split(/\\s+/).length,\n        text_quality: finalValidation.quality || 'unknown',\n        text_validation_reason: finalValidation.reason,\n        \n        // معلومات التجميع\n        message_texts_found: group.message_texts.length,\n        all_texts_found: group.all_texts.length,\n        texts_merged: group.message_texts.length + group.all_texts.length > 1,\n        merge_method: group.message_texts.length > 1 ? 'comprehensive' : 'single',\n        \n        // معلومات الأحداث\n        event_types_found: Array.from(group.event_types),\n        unique_events_count: group.event_types.size,\n        has_multiple_sources: group.has_multiple_sources,\n        \n        // معلومات التقييم\n        completeness_score: completeness,\n        confidence_level,\n        validation_results: group.validation_results,\n        \n        // معلومات التدفق\n        conversation_type: conversationFlow.conversation_type,\n        has_coherent_flow: conversationFlow.has_coherent_flow,\n        events_count: conversationFlow.events_timeline.length,\n        \n        // الحالة النهائية\n        extraction_status: finalValidation.isValid ? 'SUCCESS' : `INVALID: ${finalValidation.reason}`,\n        processing_status: 'COMPLETE',\n        ready_for_next_step: should_respond\n      }\n    }\n  });\n  \n  // تنظيف من الذاكرة المؤقتة\n  if (staticData.messageCache && staticData.messageCache[fingerprint]) {\n    delete staticData.messageCache[fingerprint];\n  }\n}\n\n// ==================\n// الإحصائيات النهائية الشاملة\n// ==================\nconst stats = {\n  total_groups: Object.keys(messageGroups).length,\n  final_messages: finalMessages.length,\n  \n  // إحصائيات النصوص\n  text_stats: {\n    valid: finalMessages.filter(m => m.json.has_valid_text).length,\n    invalid: finalMessages.filter(m => !m.json.has_valid_text).length,\n    merged: finalMessages.filter(m => m.json.merged_texts_count > 1).length,\n    quality: {\n      excellent: finalMessages.filter(m => m.json.text_quality === 'excellent').length,\n      high: finalMessages.filter(m => m.json.text_quality === 'high').length,\n      medium: finalMessages.filter(m => m.json.text_quality === 'medium').length,\n      low: finalMessages.filter(m => m.json.text_quality === 'low').length,\n      invalid: finalMessages.filter(m => m.json.text_quality === 'invalid').length\n    }\n  },\n  \n  // إحصائيات الأولوية\n  priority_breakdown: {\n    critical: finalMessages.filter(m => m.json.final_priority === 'critical').length,\n    high: finalMessages.filter(m => m.json.final_priority === 'high').length,\n    normal: finalMessages.filter(m => m.json.final_priority === 'normal').length,\n    low: finalMessages.filter(m => m.json.final_priority === 'low').length\n  },\n  \n  // إحصائيات التدخل\n  intervention_breakdown: {\n    ai_agent: finalMessages.filter(m => m.json.use_ai_agent).length,\n    human: finalMessages.filter(m => m.json.requires_human).length,\n    bot: finalMessages.filter(m => !m.json.use_ai_agent && !m.json.requires_human).length\n  },\n  \n  // إحصائيات الثقة\n  confidence_breakdown: {\n    very_high: finalMessages.filter(m => m.json.confidence_level === 'very_high').length,\n    high: finalMessages.filter(m => m.json.confidence_level === 'high').length,\n    medium: finalMessages.filter(m => m.json.confidence_level === 'medium').length,\n    low: finalMessages.filter(m => m.json.confidence_level === 'low').length,\n    very_low: finalMessages.filter(m => m.json.confidence_level === 'very_low').length\n  },\n  \n  // إحصائيات الاكتمال\n  completeness: {\n    complete: finalMessages.filter(m => m.json.is_complete).length,\n    partial: finalMessages.filter(m => !m.json.is_complete).length,\n    average_score: Math.round(\n      finalMessages.reduce((sum, m) => sum + (m.json.completeness_score || 0), 0) / \n      finalMessages.length\n    )\n  },\n  \n  // إحصائيات الاستجابة\n  response_stats: {\n    should_respond: finalMessages.filter(m => m.json.should_respond).length,\n    no_response: finalMessages.filter(m => !m.json.should_respond).length,\n    response_types: {\n      ai_response: finalMessages.filter(m => m.json.response_strategy.type.includes('ai')).length,\n      bot_response: finalMessages.filter(m => m.json.response_strategy.type === 'bot_response').length,\n      human_escalation: finalMessages.filter(m => m.json.response_strategy.type === 'human_escalation').length,\n      welcome: finalMessages.filter(m => m.json.response_strategy.type.includes('welcome')).length,\n      queue: finalMessages.filter(m => m.json.response_strategy.type.includes('queue')).length\n    }\n  }\n};\n\n// طباعة الإحصائيات\nconsole.log('');\nconsole.log('=== Enhanced Processing Statistics ===');\nconsole.log('═══════════════════════════════════════');\nconsole.log(`📊 Total groups processed: ${stats.total_groups}`);\nconsole.log(`📝 Final messages: ${stats.final_messages}`);\nconsole.log('');\nconsole.log('📄 Text Statistics:');\nconsole.log(`  ✓ Valid texts: ${stats.text_stats.valid}`);\nconsole.log(`  ✗ Invalid texts: ${stats.text_stats.invalid}`);\nconsole.log(`  🔄 Merged texts: ${stats.text_stats.merged}`);\nconsole.log(`  Quality breakdown:`, stats.text_stats.quality);\nconsole.log('');\nconsole.log('🎯 Priority Breakdown:', stats.priority_breakdown);\nconsole.log('🤖 Intervention Types:', stats.intervention_breakdown);\nconsole.log('📊 Confidence Levels:', stats.confidence_breakdown);\nconsole.log('');\nconsole.log('✅ Completeness:');\nconsole.log(`  Complete: ${stats.completeness.complete}`);\nconsole.log(`  Partial: ${stats.completeness.partial}`);\nconsole.log(`  Average score: ${stats.completeness.average_score}%`);\nconsole.log('');\nconsole.log('💬 Response Statistics:');\nconsole.log(`  Should respond: ${stats.response_stats.should_respond}`);\nconsole.log(`  No response needed: ${stats.response_stats.no_response}`);\nconsole.log(`  Response types:`, stats.response_stats.response_types);\nconsole.log('═══════════════════════════════════════');\n\n// تحذيرات مهمة\nif (stats.text_stats.invalid === stats.final_messages && stats.final_messages > 0) {\n  console.warn('');\n  console.warn('⚠️ ════ WARNING ════ ⚠️');\n  console.warn('All messages have invalid or no text content!');\n  console.warn('Common issues found:', \n    finalMessages.map(m => m.json.debug_info.text_validation_reason)\n      .filter((v, i, a) => a.indexOf(v) === i)\n      .join(', ')\n  );\n  console.warn('Please check webhook data structure and extraction paths.');\n  console.warn('════════════════════');\n}\n\nif (stats.confidence_breakdown.very_low > stats.final_messages * 0.5) {\n  console.warn('');\n  console.warn('⚠️ More than 50% of messages have very low confidence!');\n  console.warn('Consider reviewing data quality and extraction logic.');\n}\n\n// معلومات إضافية للـ debugging إذا لزم\nif (CONFIG.DEBUG_MODE && finalMessages.length > 0) {\n  console.log('');\n  console.log('🔍 Sample Debug Info (First Message):');\n  const sample = finalMessages[0].json.debug_info;\n  console.log(`  Event types: ${sample.event_types_found.join(', ')}`);\n  console.log(`  Conversation type: ${sample.conversation_type}`);\n  console.log(`  Text quality: ${sample.text_quality}`);\n  console.log(`  Completeness: ${sample.completeness_score}%`);\n  console.log(`  Ready for next: ${sample.ready_for_next_step}`);\n}\n\nreturn finalMessages;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -928,
+        400
+      ],
+      "id": "58aa9c7d-cda7-49b9-9ca7-9c84d83afa72",
+      "name": "Check Message Completeness"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1gEBF0y9g9UwslW6SWiO5aeyJ6hYzFOY4I5sQI5UVC44",
+          "mode": "list",
+          "cachedResultName": "kommo",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gEBF0y9g9UwslW6SWiO5aeyJ6hYzFOY4I5sQI5UVC44/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 241084562,
+          "mode": "list",
+          "cachedResultName": "Kommo_Raw",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gEBF0y9g9UwslW6SWiO5aeyJ6hYzFOY4I5sQI5UVC44/edit#gid=241084562"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lead_id": "={{$json.lead_id || \"\"}}",
+            "chat_id": "={{$json.chat_id || \"\"}}",
+            "message_text": "={{$json.message_text || \"\"}}",
+            "event_time_utc": "={{$json.event_time_utc || $now.toISO()}}",
+            "received_at_utc": "={{$json.received_at_utc || $now.toISO()}}",
+            "group_key": "={{$json.group_key || $json.message_fingerprint || \"\"}}",
+            "client_name": "={{$json.client_name}}",
+            "event_types": "={{$json.event_types || $json.unique_event_types || \"\"}}",
+            "events_count": "={{$json.events_count || $json.pulses_received || $json.final_pulse_count || 0}}",
+            "action_required": "={{$json.action_required || \"\"}}",
+            "should_respond": "={{$json.should_respond}}",
+            "unique_keys": "={{$json.unique_keys || \"\"}}",
+            "stages_history": "={{ $json.stage_transitions?.join(' → ') || ($json.previous_stage_id && $json.stage_id ? $json.previous_stage_id + ' → ' + $json.stage_id : $json.stage_id || '') }}",
+            "stage_changed": "={{ $json.stage?.changed || false }}",
+            "previous_stage_id": "={{ $json.stage?.previous_id || $json.previous_stage_id || $json.old_status_id || '' }}",
+            "stage_name": "={{ $json.stage?.name || $json.stage_name || $json.status_name || 'Initial' }}",
+            "stage_id": "={{ $json.stage?.id || $json.stage_id || $json.status_id || '' }}",
+            "pipeline_service": "={{ $json.pipeline?.service || $json.service_type || 'general' }}",
+            "pipeline_name": "={{ $json.pipeline?.name || $json.pipeline_name || 'Unknown Pipeline' }}",
+            "pipeline_id": "={{ $json.pipeline?.id || $json.pipeline_id || '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "group_key",
+              "displayName": "group_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_text",
+              "displayName": "message_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "client_name",
+              "displayName": "client_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "event_types",
+              "displayName": "event_types",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "events_count",
+              "displayName": "events_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "action_required",
+              "displayName": "action_required",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "should_respond",
+              "displayName": "should_respond",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "event_time_utc",
+              "displayName": "event_time_utc",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_at_utc",
+              "displayName": "received_at_utc",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "unique_keys",
+              "displayName": "unique_keys",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "pipeline_id",
+              "displayName": "pipeline_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "pipeline_name",
+              "displayName": "pipeline_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "pipeline_service",
+              "displayName": "pipeline_service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stage_id",
+              "displayName": "stage_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stage_name",
+              "displayName": "stage_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "previous_stage_id",
+              "displayName": "previous_stage_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stage_changed",
+              "displayName": "stage_changed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stages_history",
+              "displayName": "stages_history",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "e8fab57e-d815-4332-b6ec-26d112766106",
+      "name": "Save Events to Google Sheets1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -704,
+        400
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Kommo Webhook Receiver": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need AI Response?": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Generate AI Response": {
+      "main": [
+        []
+      ]
+    },
+    "Send to Kommo": {
+      "main": [
+        [
+          {
+            "node": "Update Conversation Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Process & Deduplicate Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Deduplicate Events": {
+      "main": [
+        [
+          {
+            "node": "Check Message Completeness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Message Completeness": {
+      "main": [
+        [
+          {
+            "node": "Save Events to Google Sheets1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "timezone": "Europe/Istanbul",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "HZSmC44E9aygiyzn"
+  },
+  "versionId": "9f5b4bb4-6960-4bca-a17e-39b718fc30ce",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bbcc8f8955fdb6b9df383b7af3b82b49081e116d9ff63429580cf5caee57238e"
+  },
+  "id": "qi1Nw1P17XKs44Ib",
+  "tags": []
+}

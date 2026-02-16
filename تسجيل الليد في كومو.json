@@ -1,0 +1,1163 @@
+{
+  "name": "تسجيل الليد في كومو",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// --- Config ---\nconst SUBDOMAIN   = \"infodvnlogcom\";\nconst PIPELINE_ID = 11613083;\nconst STATUS_ID   = 89191851;\nconst RESPONSIBLE_USER_ID = 12924735;\n\n// --- Fixed Tags ---\nconst FIXED_TAGS = [{ name: \"MonthlyTax\" }];\n\n// --- Helpers ---\nconst isNonEmpty = v => v != null && String(v).trim() !== \"\";\nconst toStr = v => (v == null ? \"\" : String(v)).trim();\n\nconst pickFirst = (...candidates) => {\n  for (const c of candidates.flat()) {\n    if (Array.isArray(c)) continue; // نتجنب المصفوفات هنا\n    if (isNonEmpty(c)) return String(c).trim();\n  }\n  return \"\";\n};\n\nconst uniq = arr => [...new Set(arr.filter(isNonEmpty))];\n\n// إزالة المسافات/الشرط/الأقواس مع الإبقاء على +\nconst normalizePhone = p => toStr(p).replace(/[^\\d+]+/g, \"\");\n\n// اجمع حتى 5 أرقام من حقول phone_1..phone_5 أو مصادر بديلة\nfunction collectPhones(src = {}) {\n  const fromFixed = [1,2,3,4,5].map(i => toStr(src[`phone_${i}`]));\n  const fromArray = Array.isArray(src.phone_values) ? src.phone_values.map(toStr) : [];\n  const contactPhone = toStr(src.contact_phone);\n\n  const all = uniq([...fromFixed, ...fromArray, contactPhone]).map(normalizePhone);\n  return all.slice(0, 5);\n}\n\n// اجمع حتى 5 إيميلات من email_1..email_5 أو مصادر بديلة\nfunction collectEmails(src = {}) {\n  const fromFixed = [1,2,3,4,5].map(i => toStr(src[`email_${i}`]).toLowerCase());\n  const fromArray = Array.isArray(src.email_values) ? src.email_values.map(e => toStr(e).toLowerCase()) : [];\n  const contactEmail = toStr(src.contact_email).toLowerCase();\n\n  const all = uniq([...fromFixed, ...fromArray, contactEmail]);\n  return all.slice(0, 5);\n}\n\nfunction createCustomFieldsValues(phones, emails) {\n  const arr = [];\n  if (phones.length) {\n    arr.push({\n      field_code: \"PHONE\",\n      values: phones.map(p => ({ value: p, enum_code: \"WORK\" }))\n    });\n  }\n  if (emails.length) {\n    arr.push({\n      field_code: \"EMAIL\",\n      values: emails.map(e => ({ value: e, enum_code: \"WORK\" }))\n    });\n  }\n  return arr;\n}\n\n// استخراج/بناء first/last/full name من سجل\nfunction deriveNames(rec = {}) {\n  const full =\n    pickFirst(rec.full_name, rec.contact_name) ||\n    `${toStr(rec.first_name)} ${toStr(rec.last_name)}`.trim();\n\n  let first = toStr(rec.first_name);\n  let last  = toStr(rec.last_name);\n\n  if (!first && !last && full) {\n    const parts = full.trim().split(/\\s+/);\n    first = parts[0] || \"\";\n    last  = parts.length > 1 ? parts.slice(1).join(\" \") : \"\";\n  }\n  return {\n    first_name: first,\n    last_name : last,\n    full_name : full\n  };\n}\n\n// تكوين اسم الشركة مع فول-باك ذكي من folder_name (إزالة TAX من البداية)\nfunction deriveCompanyName(rec = {}) {\n  const direct = pickFirst(rec.company_name, rec.companyName);\n  if (direct) return direct;\n  const folder = toStr(rec.folder_name || rec.folderName);\n  return folder.replace(/^TAX\\s+/i, \"\").trim();\n}\n\n// تجميع التاجز من عدة مصادر (+ dedupe)\nfunction collectTags(records = []) {\n  const out = new Set();\n\n  const add = (name) => {\n    const n = toStr(name);\n    if (!n) return;\n    out.add(n.toLowerCase()); // لمنع التكرار case-insensitive\n  };\n\n  for (const r of records) {\n    // arrays مباشرة\n    if (Array.isArray(r.tags)) r.tags.forEach(add);\n    if (isNonEmpty(r.tag_name)) add(r.tag_name);\n\n    // tag_objects: [{id,name}]\n    if (Array.isArray(r.tag_objects)) {\n      r.tag_objects.forEach(o => add(o?.name));\n    }\n\n    // لو كانت موجودة داخل documents[0].tags\n    if (Array.isArray(r.documents?.[0]?.tags)) {\n      r.documents[0].tags.forEach(add);\n    }\n  }\n\n  // حوّلها لشكل [{name}]\n  return [...out].map(n => ({ name: n }));\n}\n\n// دمج التاجز الثابتة مع الديناميكية مع منع التكرار\nfunction mergeFixedAndDynamicTags(dynamic = []) {\n  const all = [...FIXED_TAGS, ...dynamic];\n  const seen = new Set();\n  const res = [];\n  for (const t of all) {\n    const key = toStr(t.name).toLowerCase();\n    if (!key || seen.has(key)) continue;\n    seen.add(key);\n    res.push({ name: t.name });\n  }\n  return res;\n}\n\n// --- Builder ---\nreturn $input.all().map(item => {\n  const d = item.json || {};\n\n  // مصدر السجلات التفصيلي داخل كل فولدر\n  const records = Array.isArray(d.all_records) && d.all_records.length ? d.all_records : [d];\n\n  // خُذ أول سجل صالح كمرجع للاسم/الشركة/الاتصال\n  const base = records[0] || {};\n\n  // أسماء\n  const { first_name, last_name, full_name } = deriveNames(base);\n\n  // شركة\n  const companyName = deriveCompanyName(base);\n\n  // تليفونات وإيميلات (نفضل الجمع من كل السجلات داخل نفس الفولدر)\n  const allPhones  = uniq(records.flatMap(r => collectPhones(r))).slice(0, 5);\n  const allEmails  = uniq(records.flatMap(r => collectEmails(r))).slice(0, 5);\n\n  // تاجز ديناميكية + ثابتة (MonthlyTax)\n  const dynamicTags = collectTags(records);\n  const tagsArray   = mergeFixedAndDynamicTags(dynamicTags);\n\n  // بناء الـ payload مع الحفاظ على نفس الهيكلة المطلوبة\n  return {\n    method: \"POST\",\n    url: `https://${SUBDOMAIN}.kommo.com/api/v4/leads/complex`,\n    payload: {\n      name: full_name,                          // اسم الـ Lead = الاسم الكامل\n      pipeline_id: PIPELINE_ID,\n      status_id: STATUS_ID,\n      responsible_user_id: RESPONSIBLE_USER_ID,\n      created_by: RESPONSIBLE_USER_ID,\n      _embedded: {\n        tags: tagsArray,                        // [{ name }] يحتوي MonthlyTax + ديناميكي بدون تكرار\n        companies: [{ name: companyName }],     // شركة واحدة بالاسم\n        contacts: [\n          {\n            first_name,\n            last_name,\n            name: full_name,\n            custom_fields_values: createCustomFieldsValues(allPhones, allEmails)\n          }\n        ]\n      }\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        368
+      ],
+      "id": "9dcf0bef-97f2-4f8d-8394-4ade4c663b20",
+      "name": "File and folder matching"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629998503,
+          "mode": "list",
+          "cachedResultName": "ALL company",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=629998503"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "companyName": "={{ $json.company_name }}",
+            "leadId": "={{ $json.lead_id }}",
+            "taxFolderId": "={{ $json.folder_Id }}"
+          },
+          "matchingColumns": [
+            "taxFolderId"
+          ],
+          "schema": [
+            {
+              "id": "Company type",
+              "displayName": "Company type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company ID",
+              "displayName": "company ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "taxFolderName",
+              "displayName": "taxFolderName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "taxFolderId",
+              "displayName": "taxFolderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "contact_first",
+              "displayName": "contact_first",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_last",
+              "displayName": "contact_last",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_phone",
+              "displayName": "contact_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "leadId",
+              "displayName": "leadId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "contact_id",
+              "displayName": "contact_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        3632,
+        512
+      ],
+      "id": "57e2ca33-88e5-4c15-b6e5-f1dcd9d2dc90",
+      "name": "Append or update row in sheet3",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/contacts?query={{ $json.phone_1 }}&limit=50&with=leads,companies\n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY8s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -880,
+        768
+      ],
+      "id": "c377f2b7-20f8-4625-af71-1a8f8b46e25a",
+      "name": "search contacts"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads/complex",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY8s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify([$json[\"payload\"]])}}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        192
+      ],
+      "id": "0db96353-b19e-40a9-8f5b-c39189f7a3cb",
+      "name": "Add leads"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -48,
+        480
+      ],
+      "id": "cdeb7773-3d24-4c36-a149-b9b50800494e",
+      "name": "Merge leads"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2304,
+        640
+      ],
+      "id": "a2c18366-d636-4b2c-a27b-9a32bed0bf27",
+      "name": "Merge3"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        224,
+        592
+      ],
+      "id": "64bb0ed6-35be-480a-bf12-7bceb27f6b25",
+      "name": "Merge9"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== Helpers =====\nfunction normalizeText(text) {\n  if (!text) return \"\";\n  return String(text)\n    // remove zero-width & RTL marks\n    .replace(/[\\u200B-\\u200F\\u061C]/g, \"\")\n    // NFKD + strip diacritics\n    .normalize(\"NFKD\").replace(/[\\u0300-\\u036f]/g, \"\")\n    // Turkish casing quirks\n    .replace(/İ/g, \"i\").replace(/ı/g, \"i\")\n    // unify spaces & lowercase\n    .toLowerCase().replace(/\\s+/g, \" \").trim();\n}\n\nfunction stripTaxPrefix(name) {\n  const n = normalizeText(name);\n  return n.replace(/^tax\\s+/, \"\").trim();\n}\n\nfunction companyKey(obj) {\n  // جرّب companyName/ company_name\n  const byCompany = normalizeText(obj.company_name || obj.companyName || \"\");\n  if (byCompany) return byCompany;\n  // وإلا استخرج من اسم الفولدر بدون TAX\n  return stripTaxPrefix(obj.folder_name || obj.folderName || \"\");\n}\n\n// ===== Read all =====\nconst all = $input.all().map(x => x.json);\n\n// refs = العناصر اللي فيها IDs (الـ 8)\nconst refs = all.filter(r => r.lead_id != null || r.company_id != null);\n\n// base = العناصر المطلوب إخراجها (الـ 15)\nconst base = all.filter(r => (r.lead_id == null && r.company_id == null));\n\n// فهرس بالـ folderId\nconst byFolderId = new Map();\nfor (const r of refs) {\n  const fid = r.folder_Id || r.folderId;\n  if (fid && !byFolderId.has(fid)) byFolderId.set(fid, r);\n}\n\n// فهرس باسم الشركة الموحّد\nconst byCompany = new Map();\nfor (const r of refs) {\n  const key = companyKey(r);\n  if (key && !byCompany.has(key)) byCompany.set(key, r);\n}\n\n// ===== Enrich only the 15 base records =====\nconst out = base.map(row => {\n  let lead_id      = row.lead_id ?? null;\n  let company_id   = row.company_id ?? null;\n  let company_name = row.company_name || row.companyName || null;\n  let folder_name  = row.folder_name  || row.folderName  || null;\n  let folder_Id    = row.folder_Id    || row.folderId    || null;\n\n  let ref = null;\n  let note = \"\";\n\n  // 1) مطابقة بالـ folder_Id\n  if (folder_Id && byFolderId.has(folder_Id)) {\n    ref = byFolderId.get(folder_Id);\n    note = \"matched by folder_Id\";\n  }\n\n  // 2) وإلا مطابقة باسم الشركة بعد التطبيع\n  if (!ref) {\n    const key = companyKey(row);\n    if (key && byCompany.has(key)) {\n      ref = byCompany.get(key);\n      note = \"matched by company name\";\n    }\n  }\n\n  if (ref) {\n    if (lead_id == null)     lead_id    = ref.lead_id    ?? lead_id;\n    if (company_id == null)  company_id = ref.company_id ?? company_id;\n    if (!company_name)       company_name = ref.company_name || ref.companyName || company_name;\n    if (!folder_name)        folder_name  = ref.folder_name  || ref.folderName  || folder_name;\n    if (!folder_Id)          folder_Id    = ref.folder_Id    || ref.folderId    || folder_Id;\n  } else {\n    note = \"no match found (check folderId / company name normalization)\";\n  }\n\n  return {\n    json: {\n      ...row,\n      lead_id,\n      company_id,\n      company_name: company_name ?? null,\n      folder_name: folder_name ?? null,\n      folder_Id: folder_Id ?? null,\n      match_note: note\n    }\n  };\n});\n\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        1040
+      ],
+      "id": "0ffd4a58-734c-4979-b75d-cf0c4aab1e96",
+      "name": "Code16"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    const rawData = item.json.data;\n\n    if (!rawData) return { json: { error: 'No data' } };\n\n    const parsed = JSON.parse(rawData);\n    const lead = parsed._embedded?.leads?.[0];\n\n    if (!lead) return { json: { error: 'No lead found' } };\n\n    const phoneQuery = parsed._links?.self?.href?.match(/query=([^&]+)/)?.[1] || null;\n\n    const tags = lead._embedded?.tags || [];\n\n    return {\n      json: {\n        lead_id: lead.id,\n        lead_name: lead.name,\n        phone_query: decodeURIComponent(phoneQuery || ''),\n        company_id: lead._embedded?.companies?.[0]?.id || null,\n        tags: tags.map(tag => tag.name),\n        tag_ids: tags.map(tag => tag.id),\n        tag_objects: tags\n      }\n    };\n  } catch (e) {\n    return { json: { error: e.message } };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        112
+      ],
+      "id": "b4df5d64-251d-4504-8308-a4ed69bf78f3",
+      "name": "Extract & Normalize Kommo Leads"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    const raw = item.json.data;\n    if (!raw) return { json: { error: 'No data' } };\n\n    const parsed = JSON.parse(raw);\n    const contact = parsed._embedded?.contacts?.[0];\n\n    if (!contact) return { json: { error: 'No contact found' } };\n\n    // استخراج أرقام الهاتف\n    const phone_values = contact.custom_fields_values?.find(f => f.field_code === 'PHONE')?.values?.map(v => v.value) || [];\n\n    // استخراج الإيميلات\n    const email_values = contact.custom_fields_values?.find(f => f.field_code === 'EMAIL')?.values?.map(v => v.value) || [];\n\n    return {\n      json: {\n        contact_id: contact.id,\n        contact_name: contact.name,\n        phone_values,\n        email_values,\n        tags: contact._embedded?.tags?.map(tag => tag.name) || [],\n        company_id: contact._embedded?.companies?.[0]?.id || null\n      }\n    };\n  } catch (e) {\n    return { json: { error: e.message } };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        768
+      ],
+      "id": "8281d213-fb9c-4bc7-93fa-06f9391c97c8",
+      "name": "Extract & Normalize Kommo Contacts"
+    },
+    {
+      "parameters": {
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/leads?query={{ $json.primary_query_value }}\n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY8s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "=Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -896,
+        304
+      ],
+      "id": "62a5ba6c-da15-4285-9bff-7c1633f884c1",
+      "name": "search Leads",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// خُد كل العناصر من النود السابقة\nconst items = $input.all();\n\n// لو مفيش payload في أي عنصر، مرر الداتا زي ما هي (ما توقفش الفلو)\nconst payloadItem = items.find(i => i.json && i.json.payload);\nif (!payloadItem) {\n  return items; // مهم: ما نرجعش [] عشان المسار مايقفش\n}\n\n// استخرج بيانات الهدف من الـ payload\nconst payload = payloadItem.json.payload;\n\nconst targetName =\n  payload?.name || \"\";\n\nconst targetEmail =\n  payload?._embedded?.contacts?.[0]?.custom_fields_values\n    ?.find(f => f.field_code === \"EMAIL\")\n    ?.values?.[0]?.value || \"\";\n\nconst targetCompany =\n  payload?._embedded?.companies?.[0]?.name || \"\";\n\n// دالة لتوحيد المقارنة (lower/trim)\nconst norm = (v) => (v || \"\").toString().trim().toLowerCase();\n\nlet mergedDone = false;\n\n// هنمشي على العناصر، وأول واحد يطابق (بالاسم+الإيميل+الشركة) ندمجه مع الـ payload\nconst out = items.map(i => {\n  if (i === payloadItem) return i; // سيب عنصر الـ payload زي ما هو مؤقتًا\n\n  const j = i.json;\n\n  const name = j.contact_name || j.full_name || j.lead_name || \"\";\n  const email = j.contact_email || (Array.isArray(j.email_values) ? j.email_values[0] : j.email) || \"\";\n  const company = j.company_name || j.companyName || \"\";\n\n  const isMatch =\n    norm(name) === norm(targetName) &&\n    norm(email) === norm(targetEmail) &&\n    norm(company) === norm(targetCompany);\n\n  if (!isMatch || mergedDone) return i;\n\n  mergedDone = true;\n\n  // حضّر مصفوفات IDs لو متوفرة\n  const leadIds = [...new Set([...(j.leadIds || []), j.lead_id].filter(Boolean))];\n  const contactIds = [...new Set([...(j.contactIds || []), j.contact_id].filter(Boolean))];\n\n  return {\n    json: {\n      ...j,\n      payload,            // خليه معاك لو محتاجه لاحقًا\n      leadIds,\n      contactIds,\n      matchType: j.matchType || \"Both\", // أو غيّرها حسب لوجيكك\n    }\n  };\n});\n\n// لو مفيش ولا عنصر اتدمج، ممكن تختار تضيف عنصر بيوثّق payload لوحده (اختياري)\nif (!mergedDone) {\n  out.push({ json: { payload, matchType: \"payload_only\" } });\n}\n\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        432
+      ],
+      "id": "2713f1e1-318e-4df4-84bd-bc702f98c36d",
+      "name": "Code23"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629998503,
+          "mode": "list",
+          "cachedResultName": "ALL company",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=629998503"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -2480,
+        544
+      ],
+      "id": "e1060f7a-9bd4-4a8b-9df5-5f09747e993a",
+      "name": "Get row(s) in sheet3",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "retryOnFail": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== Helpers =====\nconst splitMultiPhones = (value) =>\n  String(value || '')\n    .split(/[,،;\\/]+/g)              // نفصل لو في أكتر من رقم\n    .map(s => s.trim())\n    .filter(Boolean);\n\nconst extractEmails = (value) =>\n  String(value || '')\n    .split(/[,،;\\/\\s]+/g)            // الإيميلات ممكن تتفصل بمسافات\n    .map(s => s.trim())\n    .filter(Boolean);\n\nconst normalizePhone = (raw) => {\n  if (!raw) return '';\n  let p = String(raw).trim();\n  p = p.replace(/^00/, '+');         // 00.. -> +\n  p = p.replace(/[^\\d+]/g, '');      // اسمح بالأرقام و + فقط\n  const plusCount = (p.match(/\\+/g) || []).length;\n  if (plusCount > 1) {\n    let seen = false;\n    p = p.split('').filter(ch => {\n      if (ch === '+') { if (seen) return false; seen = true; }\n      return true;\n    }).join('');\n  }\n  return p;\n};\n\nconst normalizeEmail = (e) => String(e || '').toLowerCase().trim();\nconst normText = (t) => String(t || '').toLowerCase().replace(/\\s+/g, ' ').trim();\n\n// ===== Build map per contact inside same folder/company =====\nconst map = new Map();\n\nfor (const item of items) {\n  const row = item.json;\n\n  const folderName = row.folderName || row.folder_name || '';\n  const folderId   = row.folderId   || row.folder_Id   || '';\n  const company    = row.companyName || row.company_name || '';\n  const fullName   = row.full_name || row.contact_name || '';\n\n  const key = `${normText(fullName)}|${normText(folderName || company)}`;\n\n  // تليفونات من contact_phone (قد يحتوي عدة أرقام)\n  const phoneCandidates = [];\n  if (row.contact_phone) phoneCandidates.push(...splitMultiPhones(row.contact_phone));\n\n  // لو موجود phone_1..phone_5 بنجمعهم كرقم واحد\n  const splitParts = [row.phone_1, row.phone_2, row.phone_3, row.phone_4, row.phone_5]\n    .map(x => (x == null ? '' : String(x).trim()))\n    .filter(Boolean);\n  if (splitParts.length) phoneCandidates.push(splitParts.join(' '));\n\n  const normPhones = phoneCandidates.map(normalizePhone).filter(Boolean);\n\n  // الإيميلات من contact_email + email_1..email_5\n  const emailCandidates = [];\n  if (row.contact_email) emailCandidates.push(...extractEmails(row.contact_email));\n  for (let i = 1; i <= 5; i++) {\n    if (row[`email_${i}`]) emailCandidates.push(row[`email_${i}`]);\n  }\n  const normEmails = emailCandidates.map(normalizeEmail).filter(Boolean);\n\n  if (!map.has(key)) {\n    map.set(key, {\n      contact_name: fullName || '',\n      company_name: company || '',\n      folder_name: folderName || '',\n      folder_Id: folderId || '',\n      phones: new Set(normPhones),\n      emails: new Set(normEmails),\n      batch_date: row.batchDate || row.batch_date || '',\n      batch_time: row.batchtime || row.batch_time || ''\n    });\n  } else {\n    const ex = map.get(key);\n    normPhones.forEach(p => ex.phones.add(p));\n    normEmails.forEach(e => ex.emails.add(e));\n  }\n}\n\n// ===== Flatten to output: keep ONLY first phone, emails up to 5 =====\nconst out = [];\nfor (const entry of map.values()) {\n  // رتّب الأرقام وخد الأول فقط\n  const phones = Array.from(entry.phones).sort((a, b) => b.length - a.length);\n  const firstPhone = phones[0] || '';\n\n  // الإيميلات (حتى 5 كما هي)\n  const emails = Array.from(entry.emails).slice(0, 5);\n\n  // الاستعلام الأساسي يفضّل الهاتف الأول\n  let primary_query_type = '';\n  let primary_query_value = '';\n  if (firstPhone) {\n    primary_query_type = 'phone';\n    primary_query_value = firstPhone;\n  } else if (emails[0]) {\n    primary_query_type = 'email';\n    primary_query_value = emails[0];\n  }\n\n  // حقول الهاتف: فقط phone_1 إن وجد\n  const phoneFields = {};\n  if (firstPhone) phoneFields.phone_1 = firstPhone;\n\n  // حقول الإيميل: ديناميكيًا بدون فراغات\n  const emailFields = {};\n  emails.forEach((e, idx) => { emailFields[`email_${idx+1}`] = e; });\n\n  out.push({\n    json: {\n      contact_name: entry.contact_name,\n      company_name: entry.company_name,\n      folder_name: entry.folder_name,\n      folder_Id: entry.folder_Id,\n      ...phoneFields,                // فقط phone_1 لو موجود\n      ...emailFields,                // email_1..email_n الموجودين فقط\n      primary_query_type,\n      primary_query_value,\n      batch_date: entry.batch_date,\n      batch_time: entry.batch_time\n    }\n  });\n}\n\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        432
+      ],
+      "id": "d3f00a17-e422-423f-acbf-23ec030e0d8c",
+      "name": "Code26"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// ===== helpers =====\nconst norm = (s) => String(s || '')\n  .normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '')\n  .replace(/ı/g,'i').replace(/İ/g,'i')\n  .toLowerCase().replace(/\\s+/g,' ').trim();\n\nconst getEmail = (d) => {\n  const cf = d.payload?._embedded?.contacts?.[0]?.custom_fields_values || [];\n  const emailField = cf.find(f => f.field_code === 'EMAIL');\n  return emailField?.values?.[0]?.value || '';\n};\nconst getPhone = (d) => {\n  const cf = d.payload?._embedded?.contacts?.[0]?.custom_fields_values || [];\n  const phoneField = cf.find(f => f.field_code === 'PHONE');\n  return phoneField?.values?.[0]?.value || '';\n};\n\n// ===== targets (خلّيها فاضية لو مش عايز تقيّد بيها) =====\nconst targetName    = \"doaa yousri\";          // جرّب سيبها فاضية \"\"\nconst targetEmail   = \"adel.mhmad@gmail.com\"; // جرّب سيبها فاضية \"\"\nconst targetCompany = \"A BAHARI OTOMOTİV\";    // جرّب سيبها فاضية \"\"\n// مثال بديل للبحث بالموبايل فقط:\n// const targetPhone = \"+905316713665\";\n\nconst tName = norm(targetName);\nconst tEmail = norm(targetEmail);\nconst tCompany = norm(targetCompany);\n// const tPhone = norm(targetPhone);\n\nconst out = items.filter(item => {\n  const d = item.json;\n  if (!d?.payload) return false;\n\n  const name    = norm(d.payload.name);\n  const email   = norm(getEmail(d));\n  const company = norm(d.payload?._embedded?.companies?.[0]?.name);\n  // const phone   = norm(getPhone(d));\n\n  let ok = true;\n  if (tName)    ok = ok && (name === tName);\n  if (tEmail)   ok = ok && (email === tEmail);\n  if (tCompany) ok = ok && (company === tCompany);\n  // لو هتستخدم الموبايل:\n  // if (tPhone)   ok = ok && (phone === tPhone);\n\n  return ok;\n});\n\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        384
+      ],
+      "id": "a146c6d5-c85e-4458-90ee-19c0f0039a02",
+      "name": "Code32",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const map = new Map();\n\nfor (const item of items) {\n  const json = item.json;\n\n  const folderName = json.folder_name || 'no_folder';\n  const key = folderName; // مفتاح الدمج\n\n  // تقسيم الاسم\n  let firstName = \"\";\n  let lastName = \"\";\n  let fullName = json.contact_name?.trim() || \"\";\n\n  if (fullName) {\n    const parts = fullName.split(/\\s+/);\n    firstName = parts[0] || \"\";\n    lastName = parts.length > 1 ? parts.slice(1).join(\" \") : \"\";\n  }\n\n  // تجهيز بيانات العنصر\n  const entry = {\n    ...json,\n    lead_id: json.lead_id || null,\n    contact_id: json.contact_id || null,\n    first_name: firstName,\n    last_name: lastName,\n    full_name: fullName,\n    matchType: json.matchType || (\n      json.lead_id && json.contact_id ? 'both' :\n      json.lead_id ? 'lead' :\n      json.contact_id ? 'contact' : 'none'\n    ),\n    tags: Array.isArray(json.tags) ? [...json.tags] : [],\n    tag_ids: Array.isArray(json.tag_ids) ? [...json.tag_ids] : [],\n    tag_objects: Array.isArray(json.tag_objects) ? [...json.tag_objects] : []\n  };\n\n  if (!map.has(key)) {\n    map.set(key, [entry]);\n  } else {\n    map.get(key).push(entry);\n  }\n}\n\n// مرحلة الدمج\nconst merged = Array.from(map.entries()).map(([folderName, records]) => {\n  const leadRecord = records.find(r => r.lead_id);\n  const contactRecord = records.find(r => r.contact_id);\n\n  return {\n    json: {\n      folder_name: folderName,\n      lead_id: leadRecord?.lead_id || null,\n      contact_id: contactRecord?.contact_id || null,\n      matchType: leadRecord && contactRecord ? 'both'\n                : leadRecord ? 'lead'\n                : contactRecord ? 'contact'\n                : 'none',\n      all_records: records\n    }\n  };\n});\n\nreturn merged;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        480
+      ],
+      "id": "f80c56e9-57b5-4401-a70e-f06c2e4535ce",
+      "name": "matching 9"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ae3e9770-c819-4868-ac96-3f1bd639343a",
+              "leftValue": "={{ $json.matchType }}",
+              "rightValue": "both",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        480
+      ],
+      "id": "84ce338b-a68f-4191-b1c8-c92f6c55da03",
+      "name": "If5"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1968,
+        384
+      ],
+      "id": "0ffd9319-e7b6-402b-9c69-9547f2c62e7f",
+      "name": "Merge12"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1088,
+        240
+      ],
+      "id": "7599957d-ead9-455a-9033-473f2576aa9b",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        368
+      ],
+      "id": "77cf88d2-1cf8-4036-b428-40e31ff9a0a6"
+    },
+    {
+      "parameters": {
+        "batchSize": 4,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1024,
+        704
+      ],
+      "id": "9457332d-a38a-40eb-b68f-917c64bd4c58",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me1",
+      "typeVersion": 1,
+      "position": [
+        -704,
+        848
+      ],
+      "id": "dc854683-42d8-4431-9e0a-7e1ca6d81df0"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2784,
+        528
+      ],
+      "id": "44147a80-37c3-44f3-99db-a64c01c2bbcb",
+      "name": "Merge13",
+      "alwaysOutputData": false,
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node (n8n)\n\n// مفتاح التجميع = contact_id + document_id (مع fallback للاسم لو مفيش id)\nconst map = new Map();\n\nconst toArr = v => Array.isArray(v) ? v : (v == null ? [] : [v]);\nconst uniq = arr => [...new Set(arr)];\nconst mergeObjsUniq = (a = [], b = []) => {\n  const s = [...a, ...b].map(o => JSON.stringify(o));\n  return [...new Set(s)].map(x => JSON.parse(x));\n};\n\nfor (const { json } of items) {\n  const key = `${json.contact_id ?? json.contact_name ?? 'no_contact'}-${json.document_id ?? 'no_doc'}`;\n\n  if (!map.has(key)) {\n    map.set(key, {\n      ...json,\n      // تأكد أن القوائم Arrays\n      tags: toArr(json.tags),\n      tag_ids: toArr(json.tag_ids),\n      tag_objects: toArr(json.tag_objects),\n      phone_values: toArr(json.phone_values),\n      email_values: toArr(json.email_values),\n    });\n  } else {\n    const ex = map.get(key);\n\n    // دمج حقول القائمة\n    ex.tags = uniq([...toArr(ex.tags), ...toArr(json.tags)]);\n    ex.tag_ids = uniq([...toArr(ex.tag_ids), ...toArr(json.tag_ids)]);\n    ex.tag_objects = mergeObjsUniq(ex.tag_objects, json.tag_objects);\n\n    ex.phone_values = uniq([...toArr(ex.phone_values), ...toArr(json.phone_values), json.contact_phone].filter(Boolean));\n    ex.email_values = uniq([...toArr(ex.email_values), ...toArr(json.email_values), json.contact_email].filter(Boolean));\n\n    // احتفظ بأول قيم غير فاضية لباقي الحقول\n    for (const k of [\n      'lead_id','lead_name','company_id','company_name',\n      'contact_id','contact_name','phone_query',\n      'document_id','document_name','tag_id','tag_name',\n      'batch_date','batch_time'\n    ]) {\n      if (ex[k] == null || ex[k] === '') ex[k] = json[k];\n    }\n  }\n}\n\n// احسب الـ matchType لكل مجموعة\nconst out = [];\nfor (const obj of map.values()) {\n  const hasLead = !!obj.lead_id;\n  const hasContact = !!obj.contact_id;\n  let matchType = 'none';\n  if (hasLead && hasContact) matchType = 'both';\n  else if (hasLead) matchType = 'lead';\n  else if (hasContact) matchType = 'contact';\n\n  out.push({ json: { ...obj, hasLead, hasContact, matchType } });\n}\n\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3008,
+        528
+      ],
+      "id": "d64b3017-1c25-476c-b1d2-f53b09713467",
+      "name": "Code18"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const d = item.json || {};\n  const fromNested =\n    Array.isArray(d.all_records) && d.all_records[0] ? d.all_records[0] : {};\n\n  // القيم الأساسية مع فُلّباك من السجل المتعشّق\n  const folder_name = d.folder_name || fromNested.folder_name || null;\n  const folder_Id   = d.folder_Id   || fromNested.folder_Id   || null;\n\n  const company_name =\n    d.company_name || d.companyName ||\n    fromNested.company_name || fromNested.companyName || null;\n\n  const company_id =\n    d.company_id ?? fromNested.company_id ?? null;\n\n  return {\n    json: {\n      lead_id: d.lead_id ?? null,\n      company_id,\n      company_name,\n      folder_name,\n      folder_Id\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        288
+      ],
+      "id": "09ad3cce-a0e2-44d6-96da-818cae85f939",
+      "name": "Code24"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 881496910,
+          "mode": "list",
+          "cachedResultName": "Monthly report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=881496910"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "companyName": "=",
+            "leadId": "={{ $json.lead_id }}",
+            "folderId": "=",
+            "tagıd": "={{ $json[\"tagıd\"] }}",
+            "tags": "={{ $json.tags }}",
+            "documentId": "={{ $json.documentId }}"
+          },
+          "matchingColumns": [
+            "documentId"
+          ],
+          "schema": [
+            {
+              "id": "batchDate",
+              "displayName": "batchDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "batchtime",
+              "displayName": "batchtime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "folderName",
+              "displayName": "folderName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "folderId",
+              "displayName": "folderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "documentId",
+              "displayName": "documentId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "documentName",
+              "displayName": "documentName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "month",
+              "displayName": "month",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "taxType",
+              "displayName": "taxType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "contact_first",
+              "displayName": "contact_first",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_last",
+              "displayName": "contact_last",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_phone",
+              "displayName": "contact_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "leadId",
+              "displayName": "leadId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tagıd",
+              "displayName": "tagıd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        4224,
+        992
+      ],
+      "id": "a47ba5be-0b8b-47f6-aca9-e4c00c250cd5",
+      "name": "Append or update row in sheet8",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3600,
+        992
+      ],
+      "id": "9da057f9-66da-4699-a348-bfe23dc12904",
+      "name": "Merge14"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "File and folder matching": {
+      "main": [
+        [
+          {
+            "node": "Add leads",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge12",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "search contacts": {
+      "main": [
+        [
+          {
+            "node": "Replace Me1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add leads": {
+      "main": [
+        [
+          {
+            "node": "Merge12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge leads": {
+      "main": [
+        [
+          {
+            "node": "Merge9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Code23",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge9": {
+      "main": [
+        [
+          {
+            "node": "matching 9",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code16": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Normalize Kommo Leads": {
+      "main": [
+        [
+          {
+            "node": "Merge leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Normalize Kommo Contacts": {
+      "main": [
+        [
+          {
+            "node": "Merge leads",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "search Leads": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code23": {
+      "main": [
+        [
+          {
+            "node": "Merge13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet3": {
+      "main": [
+        [
+          {
+            "node": "Code26",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code26": {
+      "main": [
+        [
+          {
+            "node": "Merge9",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code32": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "matching 9": {
+      "main": [
+        [
+          {
+            "node": "If5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If5": {
+      "main": [
+        [
+          {
+            "node": "File and folder matching",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge13",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge12": {
+      "main": [
+        [
+          {
+            "node": "Code32",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [
+          {
+            "node": "Extract & Normalize Kommo Leads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "search Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Extract & Normalize Kommo Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "search contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge13": {
+      "main": [
+        [
+          {
+            "node": "Code18",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code18": {
+      "main": [
+        [
+          {
+            "node": "Code24",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code24": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge14",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge14": {
+      "main": [
+        [
+          {
+            "node": "Code16",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d73554ab-ca3b-48f5-b6cc-836fcf5b16be",
+  "meta": {
+    "instanceId": "bbcc8f8955fdb6b9df383b7af3b82b49081e116d9ff63429580cf5caee57238e"
+  },
+  "id": "ThkF9x3CxeBB6KvH",
+  "tags": []
+}

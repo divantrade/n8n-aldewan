@@ -1,0 +1,3384 @@
+{
+  "name": "تسجيل شركات وبيانات copy",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 13
+            },
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -4464,
+        192
+      ],
+      "id": "1b74cc3b-e2d3-43c4-961c-4e06ef225264",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1Ue1FAta0dBCJ-nIceVwogQb9DrnVO__L' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2736,
+        544
+      ],
+      "id": "8f1a4308-01bf-40c0-8147-c50a082c13a5",
+      "name": "Search Taxpayers",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1DrkXAhpOUpyWpp2gvlGCpe2MC_lt_veq' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2736,
+        288
+      ],
+      "id": "0c5020b9-040d-4428-bcff-442a27b955f0",
+      "name": "Search personal company",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1J-Gd-7w_jkWviJVfAeXxhz3ADS1CEIwx' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2784,
+        -128
+      ],
+      "id": "e2063076-b460-4d41-8206-635f4c2ed6c1",
+      "name": "Search Limited Company",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e012c99-edfb-47b7-ac05-561672204af3",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "712b6262-73b7-492d-b63b-9f43f9753d39",
+              "name": "name",
+              "value": "={{ ($json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "73c4e58b-bd21-4f9a-8199-073e4e05c17a",
+              "name": "newFolderName",
+              "value": "={{ \"TAX \" + $json[\"name\"].replace(/\\s+/g, \" \").trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2096,
+        928
+      ],
+      "id": "7ff47dd5-3b9c-45e3-a9a1-dde2b04f14f2",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "=query",
+        "queryString": "='{{ $json[\"id\"] }}' in parents \nand mimeType = 'application/vnd.google-apps.folder' \nand name contains '{{ $json.normalizedFolderName }}' \nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1664,
+        944
+      ],
+      "id": "7bcb2798-fb8c-4e31-847c-59f13672c7e9",
+      "name": "Search TAX",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const fileName = item.json.name || \"\";\n\n  // الأنماط المختلفة\n  const patterns = [\n    { regex: /(.*)\\s*Limited Company\\.pdf$/i, type: \"Limited\" },\n    { regex: /(.*)\\s*personal Company\\s*\\.pdf$/i, type: \"Personal\" },\n    { regex: /(.*)\\s*Tax\\s*payers?\\.pdf$/i, type: \"Taxpayer\" }\n  ];\n\n  let companyName = fileName;\n  let companyType = \"Unknown\";\n\n  for (const p of patterns) {\n    const match = fileName.match(p.regex);\n    if (match) {\n      companyName = match[1].trim();\n      companyType = p.type;\n      break;\n    }\n  }\n\n  // إضافة normalizedName لتسهيل المقارنات\n  const normalizedName = companyName\n    .toLowerCase()\n    .replace(/\\s+/g, \" \") // مسافة واحدة\n    .trim();\n\n  return {\n    json: {\n      id: item.json.id,\n      name: fileName,\n      companyName,\n      normalizedName,\n      companyType\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3776,
+        160
+      ],
+      "id": "9815d57f-e40d-4597-b747-eb9095805db6",
+      "name": "file normalize"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "=new company",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -4256,
+        160
+      ],
+      "id": "2f50ef83-6fb4-4a7c-983f-8e3bb3fb25d5",
+      "name": "Search new company",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='{{$json[\"id\"]}}' in parents and trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -4048,
+        304
+      ],
+      "id": "320a3861-8084-4c70-be6d-e9b54f27500d",
+      "name": "Search inside new company",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2416,
+        32
+      ],
+      "id": "8f0eeb35-651d-4ba6-87af-14ea316af79b",
+      "name": "Merge9"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.companyType }}",
+                    "rightValue": "Limited",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "0b97c7e8-fc63-4304-a931-fb4ee475a9a2"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "08f7482e-6a49-41cb-a969-0f3de0eed05c",
+                    "leftValue": "={{ $json.companyType }}",
+                    "rightValue": "Personal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e4eab6bb-e04d-404f-aca2-06eb6dc2b92e",
+                    "leftValue": "={{ $json.companyType }}",
+                    "rightValue": "Taxpayer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -2976,
+        272
+      ],
+      "id": "654e4198-5cd1-4a41-ad99-ef0c2aefee23",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parentId = \"1J-Gd-7w_jkWviJVfAeXxhz3ADS1CEIwx\"; // ID فولدر الشركات الليمتد\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    companyType: \"Limited_Company\",\n    parentFolderId: parentId\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2576,
+        -128
+      ],
+      "id": "51990320-5337-4250-8615-4f15562ba891",
+      "name": "Limited_Company"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parentId = \"1DrkXAhpOUpyWpp2gvlGCpe2MC_lt_veq\"; // ID فولدر الشركات الليمتد\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    companyType: \"personal_Company\",\n    parentFolderId: parentId\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2544,
+        288
+      ],
+      "id": "b6693f73-bc93-4a40-a9d1-7a9b22d6149a",
+      "name": "personal_Company"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parentId = \"1Ue1FAta0dBCJ-nIceVwogQb9DrnVO__L\"; // ID فولدر الشركات الليمتد\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    companyType: \"Taxpayers\",\n    parentFolderId: parentId\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2576,
+        544
+      ],
+      "id": "58f79c4d-6242-4faf-96d7-070a8ab77c71",
+      "name": "Taxpayers"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a6e6f03c-50f7-48ca-a26d-5385cd81e19a",
+              "leftValue": "={{ $json.folderFound }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1824,
+        -224
+      ],
+      "id": "6176b55a-27c6-4740-9072-dabc67597bb9",
+      "name": "If4"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2368,
+        304
+      ],
+      "id": "c7130a7d-3c53-48d3-93c5-38d5ed20552f",
+      "name": "Merge12"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2416,
+        560
+      ],
+      "id": "f181b65e-1865-4a34-8606-b581ef08eabf",
+      "name": "Merge13"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a6e6f03c-50f7-48ca-a26d-5385cd81e19a",
+              "leftValue": "={{ $json.folderFound }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1808,
+        160
+      ],
+      "id": "4195f608-9845-41be-a86b-f1497e341c9d",
+      "name": "If5"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a6e6f03c-50f7-48ca-a26d-5385cd81e19a",
+              "leftValue": "={{ $json.folderFound }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1808,
+        560
+      ],
+      "id": "e44d548a-6998-4eb1-a22b-e95996dc05ed",
+      "name": "If6"
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -3360,
+        1280
+      ],
+      "id": "62aa9ae9-673d-481e-a296-8d29baea9b6a",
+      "name": "Wait",
+      "webhookId": "7f8a65b2-2d02-496e-9c01-beadeb9ea806"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1J-Gd-7w_jkWviJVfAeXxhz3ADS1CEIwx' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2864,
+        928
+      ],
+      "id": "608b13d9-bfc1-4d99-a2dc-eb8d50c8c496",
+      "name": "Search Limited Company2",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const companies = $items(\"file normalize1\", 0, 0).map(i => i.json); \nconst taxFolders = $input.all().map(i => i.json);\n\nconst results = companies.map(company => {\n  const exists = taxFolders.some(folder => folder.name.toLowerCase().trim() === company.newFolderName.toLowerCase().trim());\n  return {\n    json: {\n      ...company,\n      taxFolderExists: exists\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1408,
+        1008
+      ],
+      "id": "e872121f-7ae7-4ecb-bf97-9b33b212374f",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.companyType }}",
+                    "rightValue": "Limited",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "0b97c7e8-fc63-4304-a931-fb4ee475a9a2"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "08f7482e-6a49-41cb-a969-0f3de0eed05c",
+                    "leftValue": "={{ $json.companyType }}",
+                    "rightValue": "Personal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e4eab6bb-e04d-404f-aca2-06eb6dc2b92e",
+                    "leftValue": "={{ $json.companyType }}",
+                    "rightValue": "Taxpayer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -3168,
+        1264
+      ],
+      "id": "d687d26b-d366-4c04-a662-051827fe6b73",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e7f93520-ff20-431f-ad60-2a1d81d2d90a",
+              "leftValue": "={{ $json.taxFolderExists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1184,
+        1008
+      ],
+      "id": "fddd305c-c98c-4818-b4b9-53579bfeab8e",
+      "name": "If7"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const companyName = item.json.companyName || item.json.name || \"\";\n  const newFolderName = item.json.newFolderName || \"\";\n\n  const normalize = str =>\n    str.toLowerCase().trim().replace(/\\s+/g, \" \");\n\n  return {\n    json: {\n      ...item.json,\n      normalizedCompanyName: normalize(companyName),\n      normalizedFolderName: normalize(newFolderName)\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1888,
+        928
+      ],
+      "id": "79bd8fec-7bba-4a15-8f52-f67c23974a6a",
+      "name": "file normalize1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parentId = \"1J-Gd-7w_jkWviJVfAeXxhz3ADS1CEIwx\"; // ID فولدر الشركات الليمتد\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    companyType: \"Limited_Company\",\n    parentFolderId: parentId\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2368,
+        944
+      ],
+      "id": "180e5c02-0b83-42c2-8239-747a49d422cf",
+      "name": "Limited_Company - TAX"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.newFolderName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -848,
+        944
+      ],
+      "id": "403f5719-568a-47bd-b14c-73e34bd760ec",
+      "name": "Create folder6",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const parentId = \"1DrkXAhpOUpyWpp2gvlGCpe2MC_lt_veq\"; // ID فولدر الشركات الليمتد\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    companyType: \"personal_Company\",\n    parentFolderId: parentId\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2240,
+        1328
+      ],
+      "id": "8ca6ebe6-3534-4729-be7d-49979e7cdedf",
+      "name": "personal_Company1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parentId = \"1Ue1FAta0dBCJ-nIceVwogQb9DrnVO__L\"; // ID فولدر الشركات الليمتد\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    companyType: \"Taxpayers\",\n    parentFolderId: parentId\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2256,
+        1680
+      ],
+      "id": "1149dd7b-60de-4522-8d49-76f3b4379ed7",
+      "name": "Taxpayers1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e012c99-edfb-47b7-ac05-561672204af3",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "712b6262-73b7-492d-b63b-9f43f9753d39",
+              "name": "name",
+              "value": "={{ ($json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "73c4e58b-bd21-4f9a-8199-073e4e05c17a",
+              "name": "newFolderName",
+              "value": "={{ \"TAX \" + $json[\"name\"].replace(/\\s+/g, \" \").trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2000,
+        1728
+      ],
+      "id": "26a05062-0b09-4507-b555-b84411f371cb",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "=query",
+        "queryString": "='{{ $json[\"id\"] }}' in parents \nand mimeType = 'application/vnd.google-apps.folder' \nand name contains '{{ $json.normalizedFolderName }}' \nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1568,
+        1744
+      ],
+      "id": "2d60b051-8d67-4382-b4de-3bfba8128dfa",
+      "name": "Search TAX1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const companies = $items(\"file normalize2\", 0, 0).map(i => i.json); \nconst taxFolders = $input.all().map(i => i.json);\n\nconst results = companies.map(company => {\n  const exists = taxFolders.some(folder => folder.name.toLowerCase().trim() === company.newFolderName.toLowerCase().trim());\n  return {\n    json: {\n      ...company,\n      taxFolderExists: exists\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1296,
+        1808
+      ],
+      "id": "b0e154a0-f32b-4e12-bc86-25b8269f97bc",
+      "name": "Code7"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e7f93520-ff20-431f-ad60-2a1d81d2d90a",
+              "leftValue": "={{ $json.taxFolderExists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1088,
+        1808
+      ],
+      "id": "025184a6-10bc-4f67-8c6c-b00a0b11ce56",
+      "name": "If8"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const companyName = item.json.companyName || item.json.name || \"\";\n  const newFolderName = item.json.newFolderName || \"\";\n\n  const normalize = str =>\n    str.toLowerCase().trim().replace(/\\s+/g, \" \");\n\n  return {\n    json: {\n      ...item.json,\n      normalizedCompanyName: normalize(companyName),\n      normalizedFolderName: normalize(newFolderName)\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1776,
+        1728
+      ],
+      "id": "0efa1deb-492f-40db-9c3f-30f0985ed82f",
+      "name": "file normalize2"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.newFolderName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -736,
+        1744
+      ],
+      "id": "44160256-89c1-4b17-8311-ea804d2bd911",
+      "name": "Create folder7",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e012c99-edfb-47b7-ac05-561672204af3",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "712b6262-73b7-492d-b63b-9f43f9753d39",
+              "name": "name",
+              "value": "={{ ($json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "73c4e58b-bd21-4f9a-8199-073e4e05c17a",
+              "name": "newFolderName",
+              "value": "={{ \"TAX \" + $json[\"name\"].replace(/\\s+/g, \" \").trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2016,
+        1312
+      ],
+      "id": "3c1b5ae8-d52b-479c-a493-0214a1857b95",
+      "name": "Edit Fields4"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "=query",
+        "queryString": "='{{ $json[\"id\"] }}' in parents \nand mimeType = 'application/vnd.google-apps.folder' \nand name contains '{{ $json.normalizedFolderName }}' \nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1584,
+        1328
+      ],
+      "id": "5a9bb527-cda9-4b55-9f3d-3b4357f37ca7",
+      "name": "Search TAX2",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const companies = $items(\"file normalize3\", 0, 0).map(i => i.json); \nconst taxFolders = $input.all().map(i => i.json);\n\nconst results = companies.map(company => {\n  const exists = taxFolders.some(folder => folder.name.toLowerCase().trim() === company.newFolderName.toLowerCase().trim());\n  return {\n    json: {\n      ...company,\n      taxFolderExists: exists\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        1392
+      ],
+      "id": "1871f75d-31cc-4b47-91a9-ea0f5c952541",
+      "name": "Code8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e7f93520-ff20-431f-ad60-2a1d81d2d90a",
+              "leftValue": "={{ $json.taxFolderExists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1104,
+        1392
+      ],
+      "id": "3624b12e-41fe-4db1-b104-e5a11cf42ce4",
+      "name": "If9"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const companyName = item.json.companyName || item.json.name || \"\";\n  const newFolderName = item.json.newFolderName || \"\";\n\n  const normalize = str =>\n    str.toLowerCase().trim().replace(/\\s+/g, \" \");\n\n  return {\n    json: {\n      ...item.json,\n      normalizedCompanyName: normalize(companyName),\n      normalizedFolderName: normalize(newFolderName)\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1808,
+        1312
+      ],
+      "id": "3f17a447-5ec3-494c-b648-57ea76188eca",
+      "name": "file normalize3"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.newFolderName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -768,
+        1328
+      ],
+      "id": "55fe4e99-f3d4-475f-bb49-ea456c84e6dc",
+      "name": "Create folder8",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -3648,
+        2608
+      ],
+      "id": "88537e70-da9e-413c-9399-9e0841b45f0f",
+      "name": "Wait1",
+      "webhookId": "337b87f6-6d22-4712-aa08-c1456cbcd484"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.companyType }}",
+                    "rightValue": "Limited",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "0b97c7e8-fc63-4304-a931-fb4ee475a9a2"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "08f7482e-6a49-41cb-a969-0f3de0eed05c",
+                    "leftValue": "={{ $json.companyType }}",
+                    "rightValue": "Personal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e4eab6bb-e04d-404f-aca2-06eb6dc2b92e",
+                    "leftValue": "={{ $json.companyType }}",
+                    "rightValue": "Taxpayer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -3136,
+        2608
+      ],
+      "id": "f5ac9a54-0c7d-4784-9edc-1379854486dc",
+      "name": "Switch3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e012c99-edfb-47b7-ac05-561672204af3",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "712b6262-73b7-492d-b63b-9f43f9753d39",
+              "name": "name",
+              "value": "={{ ($json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "73c4e58b-bd21-4f9a-8199-073e4e05c17a",
+              "name": "newFolderName",
+              "value": "={{ \"TAX \" + $json[\"name\"].replace(/\\s+/g, \" \").trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2000,
+        3184
+      ],
+      "id": "6cb49c21-928f-48d3-b213-c80cdb1f5138",
+      "name": "Edit Taxpayers TAX"
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalizeText(text) {\n  return text\n    .toLowerCase()\n    .normalize(\"NFD\") // فصل الحروف عن الـ accents\n    .replace(/[\\u0300-\\u036f]/g, \"\") // إزالة الـ accents\n    .replace(/ı/g, \"i\") // استبدال الحروف التركية\n    .replace(/ş/g, \"s\")\n    .replace(/ğ/g, \"g\")\n    .replace(/ü/g, \"u\")\n    .replace(/ö/g, \"o\")\n    .replace(/ç/g, \"c\")\n    .trim();\n}\n\nconst companies = $items(\"normalize Taxpayers sheet\", 0, 0).map(i => i.json);\nconst taxFolders = $input.all().map(i => i.json);\n\nconst results = companies.map(company => {\n  const companyNameNorm = normalizeText(company.newFolderName);\n  const companyNormAlt = normalizeText(company.normalizedFolderName);\n\n  const matchedFolder = taxFolders.find(folder => {\n    const folderNameNorm = normalizeText(folder.name);\n    return folderNameNorm === companyNameNorm || folderNameNorm === companyNormAlt;\n  });\n\n  return {\n    json: {\n      companyFolderId: company.id,\n      companyName: company.name,\n      parentFolderId: company.parentFolderId,\n      taxFolderName: company.newFolderName,\n      taxFolderId: matchedFolder ? matchedFolder.id : null,\n      companyType: company.companyType,\n      taxFolderExists: !!matchedFolder,\n      normalizedCompanyName: company.normalizedCompanyName,\n      normalizedFolderName: company.normalizedFolderName\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1296,
+        3264
+      ],
+      "id": "0e72f313-c87b-4f21-9dc0-7a268065f69a",
+      "name": "Matching Taxpayers sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parentId = \"1DrkXAhpOUpyWpp2gvlGCpe2MC_lt_veq\"; // ID فولدر الشركات الليمتد\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    companyType: \"personal_Company\",\n    parentFolderId: parentId\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2224,
+        2688
+      ],
+      "id": "ddd11dbd-7ff3-4c0a-803b-aac5de03b6fd",
+      "name": "personal_Company-TAX sheet"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1DrkXAhpOUpyWpp2gvlGCpe2MC_lt_veq' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2816,
+        2688
+      ],
+      "id": "d81c3434-9e91-443a-a001-cf2c83d9f1c7",
+      "name": "Search personal_Company-TAX sheet",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e012c99-edfb-47b7-ac05-561672204af3",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "712b6262-73b7-492d-b63b-9f43f9753d39",
+              "name": "name",
+              "value": "={{ ($json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "73c4e58b-bd21-4f9a-8199-073e4e05c17a",
+              "name": "newFolderName",
+              "value": "={{ \"TAX \" + $json[\"name\"].replace(/\\s+/g, \" \").trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2000,
+        2752
+      ],
+      "id": "282918d5-76c7-4902-9f2a-b24bc535fda9",
+      "name": "Edit personal_Company-TAX sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const companyName = item.json.companyName || item.json.name || \"\";\n  const newFolderName = item.json.newFolderName || \"\";\n\n  const normalize = str =>\n    str.toLowerCase().trim().replace(/\\s+/g, \" \");\n\n  return {\n    json: {\n      ...item.json,\n      normalizedCompanyName: normalize(companyName),\n      normalizedFolderName: normalize(newFolderName)\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1776,
+        2752
+      ],
+      "id": "5ea576d1-de18-46b8-9be4-b193c7139cfa",
+      "name": "normalize personal_Company-TAX sheet"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "=query",
+        "queryString": "='{{ $json[\"id\"] }}' in parents \nand mimeType = 'application/vnd.google-apps.folder' \nand name contains '{{ $json.normalizedFolderName }}' \nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1568,
+        2768
+      ],
+      "id": "be99350e-0683-4166-a2ee-ad597cdb9aab",
+      "name": "Search personal_Company-TAX sheet1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const companies = $items(\"normalize personal_Company-TAX sheet\", 0, 0).map(i => i.json); \nconst taxFolders = $input.all().map(i => i.json);\n\nconst results = companies.map(company => {\n  const matchedFolder = taxFolders.find(folder =>\n    folder.name.toLowerCase().trim() === company.newFolderName.toLowerCase().trim() ||\n    folder.name.toLowerCase().trim() === company.normalizedFolderName.toLowerCase().trim()\n  );\n\n  return {\n    json: {\n      companyFolderId: company.id,\n      companyName: company.name,\n      parentFolderId: company.parentFolderId,\n      taxFolderName: company.newFolderName,\n      taxFolderId: matchedFolder ? matchedFolder.id : null,\n      companyType: company.companyType,\n      taxFolderExists: !!matchedFolder,\n      normalizedCompanyName: company.normalizedCompanyName,\n      normalizedFolderName: company.normalizedFolderName\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1296,
+        2832
+      ],
+      "id": "bc8e59cd-61f9-4335-92e6-04b27af3a2d6",
+      "name": "matching personal_Company-TAX sheet"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 206423802,
+          "mode": "list",
+          "cachedResultName": "personal",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=206423802"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company İD": "={{ $json.companyFolderId }}",
+            "Company type": "={{ $json.companyType }}",
+            "taxFolderName": "={{ $json.taxFolderName }}",
+            "taxFolderId": "={{ $json.taxFolderId }}",
+            "companyName": "={{ $json.companyName }}"
+          },
+          "matchingColumns": [
+            "company İD"
+          ],
+          "schema": [
+            {
+              "id": "Company type",
+              "displayName": "Company type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company İD",
+              "displayName": "company İD",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "taxFolderName",
+              "displayName": "taxFolderName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "taxFolderId",
+              "displayName": "taxFolderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_first_name",
+              "displayName": "contact_first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_last_name",
+              "displayName": "contact_last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_phone",
+              "displayName": "contact_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1024,
+        2800
+      ],
+      "id": "2b56998b-b7b0-45cc-b9e9-ce8e179aea47",
+      "name": "Append & update personal_Company-TAX sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const companyName = item.json.companyName || item.json.name || \"\";\n  const newFolderName = item.json.newFolderName || \"\";\n\n  const normalize = str =>\n    str.toLowerCase().trim().replace(/\\s+/g, \" \");\n\n  return {\n    json: {\n      ...item.json,\n      normalizedCompanyName: normalize(companyName),\n      normalizedFolderName: normalize(newFolderName)\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1776,
+        3184
+      ],
+      "id": "7bd7a92a-2580-4cd8-8920-38e84cc5fc68",
+      "name": "normalize Taxpayers sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parentId = \"1Ue1FAta0dBCJ-nIceVwogQb9DrnVO__L\"; // ID فولدر الشركات الليمتد\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    companyType: \"Taxpayers\",\n    parentFolderId: parentId\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2240,
+        3168
+      ],
+      "id": "8bb08cab-8f8a-4600-9e7f-0e10327eec68",
+      "name": "Taxpayers TAX sheet"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1040756246,
+          "mode": "list",
+          "cachedResultName": "Limited",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=1040756246"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company İD": "={{ $json.companyFolderId }}",
+            "Company type": "={{ $json.companyType }}",
+            "taxFolderName": "={{ $json.taxFolderName }}",
+            "taxFolderId": "={{ $json.taxFolderId }}",
+            "companyName": "={{ $json.companyName }}"
+          },
+          "matchingColumns": [
+            "company İD"
+          ],
+          "schema": [
+            {
+              "id": "Company type",
+              "displayName": "Company type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company İD",
+              "displayName": "company İD",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "taxFolderName",
+              "displayName": "taxFolderName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "taxFolderId",
+              "displayName": "taxFolderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_first_name",
+              "displayName": "contact_first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_last_name",
+              "displayName": "contact_last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_phone",
+              "displayName": "contact_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1088,
+        2208
+      ],
+      "id": "6e14081a-5332-4729-8c24-d610d1185295",
+      "name": "Append & update Limited TAX sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const companies = $items(\"normalize Limited TAX sheet\", 0, 0).map(i => i.json);\nconst taxFolders = $input.all().map(i => i.json);\n\nconst results = companies.map(company => {\n  // نبحث عن الفولدر المطابق للشركة\n  const matchedFolder = taxFolders.find(folder => \n    folder.name.toLowerCase().trim() === company.newFolderName.toLowerCase().trim()\n  );\n\n  return {\n    json: {\n      companyFolderId: company.id,                 // ID فولدر الشركة\n      companyName: company.name,                   // اسم الشركة\n      parentFolderId: company.parentFolderId,      // ID الفولدر الأم\n      taxFolderName: company.newFolderName,        // اسم فولدر الضريبة\n      taxFolderId: matchedFolder ? matchedFolder.id : null, // ID فولدر الضريبة لو موجود\n      companyType: company.companyType,            // نوع الشركة\n      taxFolderExists: !!matchedFolder,            // هل فولدر الضريبة موجود\n      normalizedCompanyName: company.normalizedCompanyName,\n      normalizedFolderName: company.normalizedFolderName\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        2208
+      ],
+      "id": "a28d48ec-6d65-466d-a874-c43e219e1513",
+      "name": "matching Limited TAX sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const companyName = item.json.companyName || item.json.name || \"\";\n  const newFolderName = item.json.newFolderName || \"\";\n\n  const normalize = str =>\n    str.toLowerCase().trim().replace(/\\s+/g, \" \");\n\n  return {\n    json: {\n      ...item.json,\n      normalizedCompanyName: normalize(companyName),\n      normalizedFolderName: normalize(newFolderName)\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1808,
+        2208
+      ],
+      "id": "85c674d0-b9a3-4cc2-ba1f-416d8d42243a",
+      "name": "normalize Limited TAX sheet"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e012c99-edfb-47b7-ac05-561672204af3",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "712b6262-73b7-492d-b63b-9f43f9753d39",
+              "name": "name",
+              "value": "={{ ($json[\"name\"]).trim().replace(/\\n/g,\"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "73c4e58b-bd21-4f9a-8199-073e4e05c17a",
+              "name": "newFolderName",
+              "value": "={{ \"TAX \" + $json[\"name\"].replace(/\\s+/g, \" \").trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2016,
+        2208
+      ],
+      "id": "b27a020a-cd07-481a-adac-7d98f278afc4",
+      "name": "Edit Limited TAX sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parentId = \"1J-Gd-7w_jkWviJVfAeXxhz3ADS1CEIwx\"; // ID فولدر الشركات الليمتد\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    companyType: \" Limited_Company\",\n    parentFolderId: parentId\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2288,
+        2208
+      ],
+      "id": "84e7da1c-6a11-4c07-8abb-2f937dc560cc",
+      "name": "Limited TAX sheet"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1J-Gd-7w_jkWviJVfAeXxhz3ADS1CEIwx' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2864,
+        2224
+      ],
+      "id": "f84417f5-ba2a-4b4f-8295-811c9a5b5317",
+      "name": "Search Limited TAX sheet",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1Ue1FAta0dBCJ-nIceVwogQb9DrnVO__L' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2784,
+        3168
+      ],
+      "id": "0094d83b-bd28-4bb2-83cf-59ebfcb0b66d",
+      "name": "Search Taxpayers TAX sheet",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "=query",
+        "queryString": "='{{ $json[\"id\"] }}' in parents \nand mimeType = 'application/vnd.google-apps.folder' \nand name contains '{{ $json.normalizedFolderName }}' \nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1568,
+        3200
+      ],
+      "id": "f819f606-8b88-4da8-bda2-ac41256e8286",
+      "name": "Search Taxpayers TAX sheet1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1617195523,
+          "mode": "list",
+          "cachedResultName": "Taxpayers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=1617195523"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company İD": "={{ $json.companyFolderId }}",
+            "Company type": "={{ $json.companyType }}",
+            "taxFolderName": "={{ $json.taxFolderName }}",
+            "taxFolderId": "={{ $json.taxFolderId }}",
+            "companyName": "={{ $json.companyName }}"
+          },
+          "matchingColumns": [
+            "company İD"
+          ],
+          "schema": [
+            {
+              "id": "Company type",
+              "displayName": "Company type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company İD",
+              "displayName": "company İD",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "taxFolderName",
+              "displayName": "taxFolderName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "taxFolderId",
+              "displayName": "taxFolderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_first_name",
+              "displayName": "contact_first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_last_name",
+              "displayName": "contact_last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_phone",
+              "displayName": "contact_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1040,
+        3264
+      ],
+      "id": "baa6ed91-5b64-4547-967b-897d80f09708",
+      "name": "Append & update Taxpayers TAX sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "=query",
+        "queryString": "='{{ $json[\"id\"] }}' in parents \nand mimeType = 'application/vnd.google-apps.folder' \nand name contains '{{ $json.normalizedFolderName }}' \nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1584,
+        2208
+      ],
+      "id": "549be5be-42ad-40c3-a3a5-21dd2983bf88",
+      "name": "Search Limited TAX sheet1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const folders = $input.all().filter(i => i.json.companyName === undefined); // بيانات الفولدرات\nconst companies = $input.all().filter(i => i.json.companyName !== undefined); // بيانات الشركات\n\n// نستخرج parentFolderId ثابت لأنه نفس القيمة لكل الفولدرات\nconst defaultParentId = folders.length > 0 ? folders[0].json.parentFolderId : null;\n\nconst results = companies.map(company => {\n  const match = folders.find(f =>\n    f.json.name.toLowerCase().trim() === company.json.companyName.toLowerCase().trim()\n  );\n\n  return {\n    json: {\n      ...company.json,\n      folderId: match ? match.json.id : null,\n      parentFolderId: match ? match.json.parentFolderId : defaultParentId,\n      folderFound: !!match\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2096,
+        -224
+      ],
+      "id": "dfb5d03b-3a4d-4dde-8183-d08d0b16370a",
+      "name": "File and folder matching limited"
+    },
+    {
+      "parameters": {
+        "jsCode": "const folders = $input.all().filter(i => i.json.companyName === undefined); // بيانات الفولدرات\nconst companies = $input.all().filter(i => i.json.companyName !== undefined); // بيانات الشركات\n\n// نستخرج parentFolderId ثابت لأنه نفس القيمة لكل الفولدرات\nconst defaultParentId = folders.length > 0 ? folders[0].json.parentFolderId : null;\n\nconst results = companies.map(company => {\n  const match = folders.find(f =>\n    f.json.name.toLowerCase().trim() === company.json.companyName.toLowerCase().trim()\n  );\n\n  return {\n    json: {\n      ...company.json,\n      folderId: match ? match.json.id : null,\n      parentFolderId: match ? match.json.parentFolderId : defaultParentId,\n      folderFound: !!match\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        160
+      ],
+      "id": "deba4389-e587-4200-8171-3b4f1ae54bf8",
+      "name": "File and folder matching personal"
+    },
+    {
+      "parameters": {
+        "jsCode": "const folders = $input.all().filter(i => i.json.companyName === undefined); // بيانات الفولدرات\nconst companies = $input.all().filter(i => i.json.companyName !== undefined); // بيانات الشركات\n\n// نستخرج parentFolderId ثابت لأنه نفس القيمة لكل الفولدرات\nconst defaultParentId = folders.length > 0 ? folders[0].json.parentFolderId : null;\n\nconst results = companies.map(company => {\n  const match = folders.find(f =>\n    f.json.name.toLowerCase().trim() === company.json.companyName.toLowerCase().trim()\n  );\n\n  return {\n    json: {\n      ...company.json,\n      folderId: match ? match.json.id : null,\n      parentFolderId: match ? match.json.parentFolderId : defaultParentId,\n      folderFound: !!match\n    }\n  };\n});\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        560
+      ],
+      "id": "413c9977-a7e8-4747-a3b7-a200de082a02",
+      "name": "File and folder matching Taxpayers"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2448,
+        2368
+      ],
+      "id": "82f37223-2a4f-4df3-b634-8511a8f4c459",
+      "name": "Wait2",
+      "webhookId": "d5c3a40e-e34f-436f-a4aa-5ac47d88e153"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9b4ef2c1-97f1-4ac8-8096-a0be2a44f183",
+              "leftValue": "={{ $json[\"id\"] ? true : false }}\n",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2624,
+        2224
+      ],
+      "id": "e7938051-fc3a-471b-98f4-0824adb9dce6",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2416,
+        2800
+      ],
+      "id": "0ce39b14-dbee-40ad-aeb6-3bee1a19ca11",
+      "name": "Wait3",
+      "webhookId": "1452dc5d-12eb-4032-a738-dd539e79ab05"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9b4ef2c1-97f1-4ac8-8096-a0be2a44f183",
+              "leftValue": "={{ $json[\"id\"] ? true : false }}\n",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2608,
+        2672
+      ],
+      "id": "74e3e0a5-3aab-4a01-a5f6-8242e941ba8b",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2400,
+        3328
+      ],
+      "id": "436e9e27-9013-4f27-9450-306abfb0502e",
+      "name": "Wait4",
+      "webhookId": "e37f136b-b998-4e29-9d18-08ad71257d9e"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9b4ef2c1-97f1-4ac8-8096-a0be2a44f183",
+              "leftValue": "={{ $json[\"id\"] ? true : false }}\n",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2576,
+        3184
+      ],
+      "id": "0209fc8a-d9f4-472f-8c52-56c9d473dad1",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2480,
+        1088
+      ],
+      "id": "d5a77e01-4bcd-4746-8ddd-873351bc18cd",
+      "name": "Wait5",
+      "webhookId": "eb18196f-f52a-452a-8c7f-e20903f677b9"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9b4ef2c1-97f1-4ac8-8096-a0be2a44f183",
+              "leftValue": "={{ $input.all().length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2624,
+        960
+      ],
+      "id": "240344ac-c8be-46df-b345-71d5fe86684f",
+      "name": "If10"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2480,
+        1424
+      ],
+      "id": "306a11b8-e6a3-42dd-93ba-bcdb6f87ea9b",
+      "name": "Wait6",
+      "webhookId": "1329f008-c7a6-483f-8086-f9d59f665b0f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9b4ef2c1-97f1-4ac8-8096-a0be2a44f183",
+              "leftValue": "={{ $input.all().length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2656,
+        1280
+      ],
+      "id": "c4f9a659-83f9-4767-bc86-131de0ad4ca6",
+      "name": "If11"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2416,
+        1840
+      ],
+      "id": "bc3df6c8-327f-476a-b9f7-f4ac43b8986b",
+      "name": "Wait7",
+      "webhookId": "0a5b3778-5de2-46dc-8ec2-8fc9a151b58c"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9b4ef2c1-97f1-4ac8-8096-a0be2a44f183",
+              "leftValue": "={{ $input.all().length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2608,
+        1712
+      ],
+      "id": "4d488145-85ae-4e14-8db7-31b1a9619407",
+      "name": "If12"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.companyName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.parentFolderId }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1600,
+        -128
+      ],
+      "id": "670865b6-88bb-4e71-b8f3-bd4593744cf3",
+      "name": "Create limited",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.companyName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.parentFolderId }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1584,
+        304
+      ],
+      "id": "895751f3-c748-4dbe-ba65-b6c3388cbcb4",
+      "name": "Create personal",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.companyName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.parentFolderId }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1584,
+        688
+      ],
+      "id": "ff702361-2f3a-4826-947e-b6ef16e5a137",
+      "name": "Create taxpayers",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1DrkXAhpOUpyWpp2gvlGCpe2MC_lt_veq' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2848,
+        1328
+      ],
+      "id": "4ad15d89-34d2-4247-a77a-34e45fda5036",
+      "name": "Search personal company2",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='1Ue1FAta0dBCJ-nIceVwogQb9DrnVO__L' in parents\nand mimeType = 'application/vnd.google-apps.folder'\nand trashed = false\n",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2816,
+        1680
+      ],
+      "id": "a82e542f-c48c-4a92-803a-a2629726c055",
+      "name": "Search Taxpayers2",
+      "executeOnce": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search new company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Taxpayers": {
+      "main": [
+        [
+          {
+            "node": "Taxpayers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Limited Company": {
+      "main": [
+        [
+          {
+            "node": "Limited_Company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "file normalize1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search personal company": {
+      "main": [
+        [
+          {
+            "node": "personal_Company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search TAX": {
+      "main": [
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "file normalize": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search new company": {
+      "main": [
+        [
+          {
+            "node": "Search inside new company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search inside new company": {
+      "main": [
+        [
+          {
+            "node": "file normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge9": {
+      "main": [
+        [
+          {
+            "node": "File and folder matching limited",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Search Limited Company",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge9",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Search personal company",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge12",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Search Taxpayers",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge13",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Limited_Company": {
+      "main": [
+        [
+          {
+            "node": "Merge9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "personal_Company": {
+      "main": [
+        [
+          {
+            "node": "Merge12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Taxpayers": {
+      "main": [
+        [
+          {
+            "node": "Merge13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If4": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Create limited",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If5": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Create personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge12": {
+      "main": [
+        [
+          {
+            "node": "File and folder matching personal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If6": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Create taxpayers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge13": {
+      "main": [
+        [
+          {
+            "node": "File and folder matching Taxpayers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Limited Company2": {
+      "main": [
+        [
+          {
+            "node": "If10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Search Limited Company2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search personal company2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search Taxpayers2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "If7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "file normalize1": {
+      "main": [
+        [
+          {
+            "node": "Search TAX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limited_Company - TAX": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If7": {
+      "main": [
+        [
+          {
+            "node": "Create folder6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "file normalize2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search TAX1": {
+      "main": [
+        [
+          {
+            "node": "Code7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code7": {
+      "main": [
+        [
+          {
+            "node": "If8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If8": {
+      "main": [
+        [
+          {
+            "node": "Create folder7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "file normalize2": {
+      "main": [
+        [
+          {
+            "node": "Search TAX1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields4": {
+      "main": [
+        [
+          {
+            "node": "file normalize3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search TAX2": {
+      "main": [
+        [
+          {
+            "node": "Code8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code8": {
+      "main": [
+        [
+          {
+            "node": "If9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If9": {
+      "main": [
+        [
+          {
+            "node": "Create folder8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "file normalize3": {
+      "main": [
+        [
+          {
+            "node": "Search TAX2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Taxpayers1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "personal_Company1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Switch3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch3": {
+      "main": [
+        [
+          {
+            "node": "Search Limited TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search personal_Company-TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search Taxpayers TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Taxpayers TAX": {
+      "main": [
+        [
+          {
+            "node": "normalize Taxpayers sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matching Taxpayers sheet": {
+      "main": [
+        [
+          {
+            "node": "Append & update Taxpayers TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "personal_Company-TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "Edit personal_Company-TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search personal_Company-TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit personal_Company-TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "normalize personal_Company-TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize personal_Company-TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "Search personal_Company-TAX sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search personal_Company-TAX sheet1": {
+      "main": [
+        [
+          {
+            "node": "matching personal_Company-TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "matching personal_Company-TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "Append & update personal_Company-TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize Taxpayers sheet": {
+      "main": [
+        [
+          {
+            "node": "Search Taxpayers TAX sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Taxpayers TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "Edit Taxpayers TAX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "matching Limited TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "Append & update Limited TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize Limited TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "Search Limited TAX sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Limited TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "normalize Limited TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limited TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "Edit Limited TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Limited TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Taxpayers TAX sheet": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Taxpayers TAX sheet1": {
+      "main": [
+        [
+          {
+            "node": "Matching Taxpayers sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Limited TAX sheet1": {
+      "main": [
+        [
+          {
+            "node": "matching Limited TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File and folder matching limited": {
+      "main": [
+        [
+          {
+            "node": "If4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File and folder matching personal": {
+      "main": [
+        [
+          {
+            "node": "If5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File and folder matching Taxpayers": {
+      "main": [
+        [
+          {
+            "node": "If6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Limited TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Search Limited TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "personal_Company-TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait3": {
+      "main": [
+        [
+          {
+            "node": "Search personal_Company-TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "Taxpayers TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait4": {
+      "main": [
+        [
+          {
+            "node": "Search Taxpayers TAX sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If10": {
+      "main": [
+        [
+          {
+            "node": "Limited_Company - TAX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait5": {
+      "main": [
+        [
+          {
+            "node": "Search Limited Company2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If11": {
+      "main": [
+        [
+          {
+            "node": "personal_Company1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait6": {
+      "main": [
+        [
+          {
+            "node": "Search personal company2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If12": {
+      "main": [
+        [
+          {
+            "node": "Taxpayers1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait7": {
+      "main": [
+        [
+          {
+            "node": "Search Taxpayers2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create limited": {
+      "main": [
+        []
+      ]
+    },
+    "Create personal": {
+      "main": [
+        []
+      ]
+    },
+    "Create taxpayers": {
+      "main": [
+        []
+      ]
+    },
+    "Search personal company2": {
+      "main": [
+        [
+          {
+            "node": "If11",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Taxpayers2": {
+      "main": [
+        [
+          {
+            "node": "If12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ae415abe-b56a-49e6-a343-6f9e1ed0d29f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bbcc8f8955fdb6b9df383b7af3b82b49081e116d9ff63429580cf5caee57238e"
+  },
+  "id": "W09DBIMxStYbA8fp",
+  "tags": []
+}
