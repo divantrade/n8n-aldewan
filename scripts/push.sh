@@ -48,12 +48,17 @@ push_workflow() {
     local filename
     filename=$(basename "$filepath")
 
-    # استخراج workflow ID من اسم الملف (الرقم قبل أول _)
+    # استخراج workflow ID من اسم الملف أو من محتوى JSON
     local workflow_id
     workflow_id=$(echo "$filename" | grep -oP '^\d+' || echo "")
 
     if [ -z "$workflow_id" ]; then
-        echo "  تحذير: تجاوز $filename (لا يحتوي على ID في الاسم)"
+        # محاولة قراءة ID من داخل ملف JSON
+        workflow_id=$(jq -r '.id // empty' "$filepath")
+    fi
+
+    if [ -z "$workflow_id" ]; then
+        echo "  تحذير: تجاوز $filename (لا يحتوي على ID)"
         return 0
     fi
 

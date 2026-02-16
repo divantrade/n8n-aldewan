@@ -81,6 +81,27 @@ n8n-aldewan/
     └── sync.sh           # أداة المزامنة الرئيسية
 ```
 
+## النشر التلقائي (CI/CD)
+
+عند دفع تعديلات على ملفات `workflows/*.json` إلى الفرع `main`، يتم نشرها تلقائياً على n8n عبر GitHub Actions.
+
+### الإعداد
+
+1. أضف الـ Secrets في GitHub (Settings > Secrets and variables > Actions):
+
+| Secret | الوصف |
+|--------|-------|
+| `N8N_URL` | رابط n8n (مثال: `https://n8n.aldewan.net`) |
+| `N8N_API_KEY` | مفتاح API من n8n |
+
+2. ادفع تعديلاتك على `main` وسيتم النشر تلقائياً.
+
+### النشر اليدوي
+
+يمكنك تشغيل النشر يدوياً من GitHub Actions:
+- **Deploy all**: اختر `force_all = true` لنشر جميع الـ workflows
+- **Deploy specific**: حدد اسم الملف (مثل `company-registration.json`)
+
 ## المتطلبات
 
 - `bash` 4+
