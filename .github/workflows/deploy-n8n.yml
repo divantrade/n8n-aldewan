@@ -53,6 +53,15 @@ jobs:
           else
             # Get changed workflow files in this push
             FILES=$(git diff --name-only HEAD~1 HEAD -- 'workflows/*.json' 2>/dev/null | tr '\n' ' ')
+
+            # If deploy script itself changed, redeploy ALL workflows
+            if [ -z "$FILES" ]; then
+              SCRIPT_CHANGED=$(git diff --name-only HEAD~1 HEAD -- '.github/workflows/deploy-n8n.yml' 2>/dev/null || true)
+              if [ -n "$SCRIPT_CHANGED" ]; then
+                echo "Deploy script changed - deploying ALL workflows"
+                FILES=$(ls workflows/*.json 2>/dev/null | tr '\n' ' ')
+              fi
+            fi
           fi
 
           if [ -z "$FILES" ]; then
