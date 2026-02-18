@@ -25,6 +25,59 @@
     },
     {
       "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "root",
+          "mode": "id"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1200,
+        100
+      ],
+      "id": "gd-trigger-01-auto-newfile-detect",
+      "name": "Google Drive Trigger",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "⚠️ IMPORTANT: Change 'folderToWatch' value from 'root' to the actual 'new company' folder ID in Google Drive. You can find the folder ID in the URL when you open the folder.",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "trigger-company-registration",
+        "options": {
+          "responseData": "allEntries"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        500
+      ],
+      "id": "wh-trigger-01-manual-button-sheet",
+      "name": "Webhook Trigger",
+      "webhookId": "company-reg-manual-trigger"
+    },
+    {
+      "parameters": {
         "resource": "fileFolder",
         "queryString": "=new company",
         "returnAll": true,
@@ -1034,6 +1087,28 @@
   ],
   "connections": {
     "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search new company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search new company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
       "main": [
         [
           {
