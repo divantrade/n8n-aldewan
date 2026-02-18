@@ -520,7 +520,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.companyType }}",
+                    "leftValue": "={{ $json[\"Company type\"] }}",
                     "rightValue": "Limited_Company",
                     "operator": {
                       "type": "string",
@@ -543,7 +543,7 @@
                 "conditions": [
                   {
                     "id": "08f7482e-6a49-41cb-a969-0f3de0eed05c",
-                    "leftValue": "={{ $json.companyType }}",
+                    "leftValue": "={{ $json[\"Company type\"] }}",
                     "rightValue": "personal_Company",
                     "operator": {
                       "type": "string",
@@ -566,7 +566,7 @@
                 "conditions": [
                   {
                     "id": "e4eab6bb-e04d-404f-aca2-06eb6dc2b92e",
-                    "leftValue": "={{ $json.companyType }}",
+                    "leftValue": "={{ $json[\"Company type\"] }}",
                     "rightValue": "Taxpayers",
                     "operator": {
                       "type": "string",
