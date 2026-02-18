@@ -611,8 +611,8 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "company İD": "={{ $json.companyFolderId }}",
-            "Company type": "={{ $json.companyType }}",
+            "company İD": "={{ $json[\"company İD\"] }}",
+            "Company type": "={{ $json[\"Company type\"] }}",
             "taxFolderName": "={{ $json.taxFolderName }}",
             "taxFolderId": "={{ $json.taxFolderId }}",
             "companyName": "={{ $json.companyName }}"
@@ -754,8 +754,8 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "company İD": "={{ $json.companyFolderId }}",
-            "Company type": "={{ $json.companyType }}",
+            "company İD": "={{ $json[\"company İD\"] }}",
+            "Company type": "={{ $json[\"Company type\"] }}",
             "taxFolderName": "={{ $json.taxFolderName }}",
             "taxFolderId": "={{ $json.taxFolderId }}",
             "companyName": "={{ $json.companyName }}"
@@ -896,8 +896,8 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "company İD": "={{ $json.companyFolderId }}",
-            "Company type": "={{ $json.companyType }}",
+            "company İD": "={{ $json[\"company İD\"] }}",
+            "Company type": "={{ $json[\"Company type\"] }}",
             "taxFolderName": "={{ $json.taxFolderName }}",
             "taxFolderId": "={{ $json.taxFolderId }}",
             "companyName": "={{ $json.companyName }}"
