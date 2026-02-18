@@ -202,7 +202,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge: companies that had folders + newly created folders\n// Update folderId for newly created ones\n\nconst items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n  // If this came from Create Company Folder, the id is the new folder id\n  const folderId = data.folderId || data.id;\n  \n  return {\n    json: {\n      ...data,\n      folderId: folderId,\n      folderFound: true\n    }\n  };\n});"
+        "jsCode": "// Recover original company data for newly created folders\n// Create Company Folder returns only Drive API response, losing company metadata\n// We match back by folder name === companyName\n\nconst createdFolders = $input.all().map(i => i.json);\nconst allCompanies = $('Classify & Normalize Companies').all().map(i => i.json);\n\nconst normalize = (str = '') => str.toLowerCase().trim().replace(/\\s+/g, ' ');\n\nreturn createdFolders.map(folder => {\n  // Match the created folder back to original company data\n  const company = allCompanies.find(c =>\n    normalize(c.companyName) === normalize(folder.name)\n  );\n\n  if (company) {\n    return {\n      json: {\n        ...company,\n        folderId: folder.id,\n        folderFound: true\n      }\n    };\n  }\n\n  // Fallback if no match found\n  return {\n    json: {\n      ...folder,\n      folderId: folder.id,\n      folderFound: true\n    }\n  };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
