@@ -888,10 +888,10 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": 629998503,
+          "value": 0,
           "mode": "list",
-          "cachedResultName": "ALL company",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=629998503"
+          "cachedResultName": "Limited",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=0"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -941,8 +941,7 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
+              "canBeUsedToMatch": true
             },
             {
               "id": "companyName",
@@ -954,24 +953,22 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "contact_first",
-              "displayName": "contact_first",
+              "id": "contact_first_name",
+              "displayName": "contact_first_name",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
+              "canBeUsedToMatch": true
             },
             {
-              "id": "contact_last",
-              "displayName": "contact_last",
+              "id": "contact_last_name",
+              "displayName": "contact_last_name",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
+              "canBeUsedToMatch": true
             },
             {
               "id": "contact_phone",
@@ -992,34 +989,13 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "full_name",
-              "displayName": "full_name",
+              "id": "name",
+              "displayName": "name",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "leadId",
-              "displayName": "leadId",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "contact_id",
-              "displayName": "contact_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
+              "canBeUsedToMatch": true
             }
           ],
           "attemptToConvertTypes": false,
@@ -1041,6 +1017,19 @@
           "name": "Google Sheets account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize field names from Google Sheets output\n// Fixes: Google Sheets may return 'company ID' (regular I) while\n// downstream nodes expect 'company İD' (Turkish İ U+0130)\n// This caused matching to fail → rows appended instead of updated\n\nconst items = $input.all();\n\nreturn items.map(item => {\n  const d = item.json;\n  const keys = Object.keys(d);\n\n  // Find the company ID key regardless of İ vs I encoding\n  const companyIdKey = keys.find(k => /^company\\s*[İIi]D$/i.test(k));\n  const companyTypeKey = keys.find(k => /^company\\s*type$/i.test(k));\n\n  return {\n    json: {\n      'company İD': companyIdKey ? d[companyIdKey] : '',\n      'Company type': companyTypeKey ? d[companyTypeKey] : '',\n      taxFolderName: d.taxFolderName || '',\n      taxFolderId: d.taxFolderId || '',\n      companyName: d.companyName || ''\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2760,
+        200
+      ],
+      "id": "a1b2c3d4-norm-4567-8901-normalizeflds",
+      "name": "Normalize Sheet Output"
     }
   ],
   "connections": {
@@ -1228,6 +1217,17 @@
       ]
     },
     "Update ALL company Sheet": {
+      "main": [
+        [
+          {
+            "node": "Normalize Sheet Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Sheet Output": {
       "main": [
         [
           {
