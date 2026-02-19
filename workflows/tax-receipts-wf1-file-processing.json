@@ -1,0 +1,607 @@
+{
+  "name": "WF1 - معالجة ملفات الضرائب وتوزيعها",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            },
+            {
+              "triggerAtHour": 13
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-200, 300],
+      "id": "trigger-schedule",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "tax-receipts-process",
+        "options": {
+          "responseData": "allEntries"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-200, 520],
+      "id": "trigger-webhook",
+      "name": "Webhook Trigger",
+      "webhookId": "tax-receipts-process-manual"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "=monthly taxes",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [80, 300],
+      "id": "drive-search-folder",
+      "name": "Search monthly taxes",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='{{$json[\"id\"]}}' in parents and trashed = false",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [320, 300],
+      "id": "drive-search-files",
+      "name": "Search inside monthly taxes",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 881496910,
+          "mode": "list",
+          "cachedResultName": "Monthly report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=881496910"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [80, 740],
+      "id": "sheets-get-processed",
+      "name": "Get already processed files",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Filter out already processed files\n// ============================================\nconst driveFiles = $('Search inside monthly taxes').all();\nconst processedItems = $('Get already processed files').all();\n\n// Build a Set of already processed fileIds\nconst processedFileIds = new Set();\nfor (const item of processedItems) {\n  const fId = item.json.fileId || item.json.file_id || '';\n  if (fId) processedFileIds.add(fId);\n}\n\n// Filter: only keep files NOT already processed\nconst newFiles = driveFiles.filter(item => {\n  const fileId = item.json.id || '';\n  return !processedFileIds.has(fileId);\n});\n\nif (newFiles.length === 0) {\n  // Return empty to stop the workflow gracefully\n  return [{ json: { _noNewFiles: true, message: 'No new files to process' } }];\n}\n\nreturn newFiles;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 300],
+      "id": "code-filter-processed",
+      "name": "Filter already processed"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-has-files",
+              "leftValue": "={{ $json._noNewFiles }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [800, 300],
+      "id": "if-has-new-files",
+      "name": "Has new files?"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{$json[\"id\"]}}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1040, 200],
+      "id": "drive-download",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [1280, 200],
+      "id": "extract-pdf",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629998503,
+          "mode": "list",
+          "cachedResultName": "ALL company",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=629998503"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [1040, 500],
+      "id": "sheets-get-companies",
+      "name": "Get Master company list",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1520, 300],
+      "id": "merge-data",
+      "name": "Merge PDF + Companies"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Prepare AI prompt: combine PDF text with company list\n// ============================================\n\nconst items = $input.all();\n\n// Get company list from the Master Sheet\nconst companies = $('Get Master company list').all().map(item => {\n  const d = item.json;\n  return {\n    name: d.companyName || d['companyName'] || '',\n    taxFolderName: d.taxFolderName || '',\n    taxFolderId: d.taxFolderId || '',\n    contactPhone: d.contact_phone || '',\n    contactId: d.contact_id || '',\n    kommoCompanyId: d.kommoCompanyId || d['kommo_company_id'] || '',\n    kommoContactId: d.kommoContactId || d['kommo_contact_id'] || '',\n    companyId: d['company İD'] || d['Company ID'] || d['company ID'] || ''\n  };\n}).filter(c => c.name);\n\nconst companyNames = companies.map(c => c.name);\n\n// For each PDF item, prepare the AI prompt\nreturn items.map(item => {\n  const text = item.json.text || '';\n  const fileName = item.json.name || item.json.fileName || '';\n  const fileId = item.json.id || '';\n\n  const prompt = `You are a Turkish tax document parser. Extract structured data from the following PDF text.\n\nPDF Text:\n---\n${text.substring(0, 4000)}\n---\n\nFile Name: ${fileName}\n\nCompany List (match the extracted company name to the closest one from this list):\n${companyNames.join('\\n')}\n\nExtract the following and return ONLY valid JSON (no markdown, no explanation):\n{\n  \"companyName\": \"the company name as found in the document\",\n  \"matchedCompany\": \"the closest matching company name from the Company List above, or null if no match\",\n  \"taxType\": \"one of: KDV, KDV Tevkifat, SGK, Muhtasar, Kurumlar, Kurumlar Geçici, or the detected type\",\n  \"monthNumber\": \"MM format (01-12) or null\",\n  \"monthName\": \"Turkish month name (Ocak, Şubat, etc.) or null\",\n  \"year\": \"YYYY format or null\",\n  \"amount\": numeric amount or 0,\n  \"confidence\": confidence score 0.0 to 1.0\n}\n\nIMPORTANT:\n- For company name matching: ignore liquidation prefixes (TASF. HAL., TASFİYE HALİNDE, etc.) and legal suffixes (LİMİTED ŞİRKETİ, etc.)\n- For SGK documents: look for İşyeri Ünvanı or Unvanı fields\n- For tax documents: look for SOYADI (UNVANI) field\n- For tax type: check for KDV (Katma Değer Vergisi), SGK (Sosyal Güvenlik), Muhtasar, Kurumlar Vergisi\n- For period: look for Vergilendirme Dönemi, AİT OLDUĞU YIL/AY\n- For amount: look for ÖDENECEK NET TUTAR, TOPLAM, or similar fields. Parse Turkish number format (1.234,56)`;\n\n  return {\n    json: {\n      fileId: fileId,\n      fileName: fileName,\n      pdfText: text,\n      aiPrompt: prompt,\n      companyListJson: JSON.stringify(companies)\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 300],
+      "id": "code-prepare-prompt",
+      "name": "Prepare AI Prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"temperature\": 0.1,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.aiPrompt) }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 300],
+      "id": "ai-extract",
+      "name": "AI Extract Tax Data",
+      "credentials": {
+        "openAiApi": {
+          "id": "UgxxU7JRYK5Qpel4",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Parse AI response and match with company data\n// ============================================\n\nconst items = $input.all();\n\nreturn items.map(item => {\n  const d = item.json;\n  \n  // Parse the AI response\n  let aiResult = {};\n  try {\n    const content = d.choices?.[0]?.message?.content || '{}';\n    aiResult = JSON.parse(content);\n  } catch (e) {\n    aiResult = {\n      companyName: null,\n      matchedCompany: null,\n      taxType: 'Bilinmeyen',\n      monthNumber: null,\n      monthName: null,\n      year: null,\n      amount: 0,\n      confidence: 0\n    };\n  }\n\n  // Get the original file data from Prepare AI Prompt node\n  const promptItems = $('Prepare AI Prompt').all();\n  const currentIndex = items.indexOf(item);\n  const promptData = promptItems[currentIndex]?.json || {};\n  const fileId = promptData.fileId || '';\n  const fileName = promptData.fileName || '';\n  \n  // Get company list and find the matched company's details\n  let companies = [];\n  try {\n    companies = JSON.parse(promptData.companyListJson || '[]');\n  } catch (e) {\n    companies = [];\n  }\n\n  const matchedCompanyName = aiResult.matchedCompany;\n  let matchedCompany = null;\n  \n  if (matchedCompanyName) {\n    // Find the company details from our list\n    matchedCompany = companies.find(c => \n      c.name === matchedCompanyName ||\n      c.name.toLowerCase().trim() === matchedCompanyName.toLowerCase().trim()\n    );\n    \n    // Fuzzy fallback: check if names contain each other\n    if (!matchedCompany) {\n      const normalizedMatch = matchedCompanyName.toLowerCase().trim();\n      matchedCompany = companies.find(c => {\n        const normalizedName = c.name.toLowerCase().trim();\n        return normalizedName.includes(normalizedMatch) || normalizedMatch.includes(normalizedName);\n      });\n    }\n  }\n\n  const isMatched = !!matchedCompany;\n  const confidence = aiResult.confidence || 0;\n\n  // Format amount in Turkish locale\n  const amount = aiResult.amount || 0;\n  let formattedAmount = '0,00 ₺';\n  try {\n    formattedAmount = new Intl.NumberFormat('tr-TR', {\n      style: 'currency',\n      currency: 'TRY'\n    }).format(amount);\n  } catch (e) {}\n\n  return {\n    json: {\n      // File info\n      fileId: fileId,\n      fileName: fileName,\n      \n      // AI extracted data\n      companyName: aiResult.companyName || 'غير محدد',\n      matchedCompanyName: matchedCompanyName || null,\n      taxType: aiResult.taxType || 'Bilinmeyen',\n      monthNumber: aiResult.monthNumber || null,\n      monthName: aiResult.monthName || null,\n      year: aiResult.year || null,\n      amount: amount,\n      formattedAmount: formattedAmount,\n      confidence: confidence,\n      \n      // Company details (from Master Sheet)\n      isMatched: isMatched,\n      taxFolderId: matchedCompany?.taxFolderId || null,\n      taxFolderName: matchedCompany?.taxFolderName || null,\n      contactPhone: matchedCompany?.contactPhone || null,\n      contactId: matchedCompany?.contactId || null,\n      kommoCompanyId: matchedCompany?.kommoCompanyId || null,\n      kommoContactId: matchedCompany?.kommoContactId || null,\n      companyId: matchedCompany?.companyId || null,\n      \n      // Status\n      status: isMatched ? 'matched' : 'unmatched',\n      message: isMatched \n        ? `تم المطابقة: ${matchedCompanyName} (${Math.round(confidence * 100)}%)`\n        : `لم يتم المطابقة: ${aiResult.companyName || fileName}`\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2240, 300],
+      "id": "code-parse-response",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-matched",
+              "leftValue": "={{ $json.isMatched }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2480, 300],
+      "id": "if-matched",
+      "name": "Company Matched?"
+    },
+    {
+      "parameters": {
+        "operation": "move",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.fileId }}",
+          "mode": "id"
+        },
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.taxFolderId }}",
+          "mode": "id"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [2760, 200],
+      "id": "drive-move-file",
+      "name": "Move to tax folder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Qxvp2her5WCwbXIO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 881496910,
+          "mode": "list",
+          "cachedResultName": "Monthly report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=881496910"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "fileName": "={{ $('Parse AI Response').item.json.fileName }}",
+            "companyName": "={{ $('Parse AI Response').item.json.matchedCompanyName }}",
+            "taxType": "={{ $('Parse AI Response').item.json.taxType }}",
+            "month": "={{ $('Parse AI Response').item.json.monthName }}",
+            "year": "={{ $('Parse AI Response').item.json.year }}",
+            "amount": "={{ $('Parse AI Response').item.json.formattedAmount }}",
+            "status": "=matched",
+            "confidence": "={{ $('Parse AI Response').item.json.confidence }}",
+            "fileId": "={{ $('Parse AI Response').item.json.fileId }}",
+            "driveFolderId": "={{ $('Parse AI Response').item.json.taxFolderId }}",
+            "kommoCompanyId": "={{ $('Parse AI Response').item.json.kommoCompanyId }}",
+            "kommoContactId": "={{ $('Parse AI Response').item.json.kommoContactId }}",
+            "processedAt": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": ["fileId"],
+          "schema": [
+            { "id": "fileName", "displayName": "fileName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "companyName", "displayName": "companyName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "taxType", "displayName": "taxType", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "month", "displayName": "month", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "year", "displayName": "year", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "amount", "displayName": "amount", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "confidence", "displayName": "confidence", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "fileId", "displayName": "fileId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "driveFolderId", "displayName": "driveFolderId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "kommoCompanyId", "displayName": "kommoCompanyId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "kommoContactId", "displayName": "kommoContactId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "processedAt", "displayName": "processedAt", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [3000, 200],
+      "id": "sheets-log-matched",
+      "name": "Log to Monthly report",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 881496910,
+          "mode": "list",
+          "cachedResultName": "Monthly report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=881496910"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "fileName": "={{ $json.fileName }}",
+            "companyName": "={{ $json.companyName }}",
+            "taxType": "={{ $json.taxType }}",
+            "status": "=unmatched",
+            "confidence": "={{ $json.confidence }}",
+            "fileId": "={{ $json.fileId }}",
+            "processedAt": "={{ new Date().toISOString() }}",
+            "note": "={{ $json.message }}"
+          },
+          "matchingColumns": ["fileId"],
+          "schema": [
+            { "id": "fileName", "displayName": "fileName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "companyName", "displayName": "companyName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "taxType", "displayName": "taxType", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "confidence", "displayName": "confidence", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "fileId", "displayName": "fileId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "processedAt", "displayName": "processedAt", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "note", "displayName": "note", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [2760, 500],
+      "id": "sheets-log-unmatched",
+      "name": "Log unmatched",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.N8N_WEBHOOK_URL || 'http://localhost:5678' }}/webhook/tax-kommo-sync",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3240, 200],
+      "id": "trigger-wf2",
+      "name": "Trigger WF2 Kommo Sync",
+      "notes": "Calls WF2 webhook to start Kommo sync after file processing is complete"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          { "node": "Search monthly taxes", "type": "main", "index": 0 },
+          { "node": "Get already processed files", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          { "node": "Search monthly taxes", "type": "main", "index": 0 },
+          { "node": "Get already processed files", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Search monthly taxes": {
+      "main": [
+        [
+          { "node": "Search inside monthly taxes", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Search inside monthly taxes": {
+      "main": [
+        [
+          { "node": "Filter already processed", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get already processed files": {
+      "main": [
+        [
+          { "node": "Filter already processed", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Filter already processed": {
+      "main": [
+        [
+          { "node": "Has new files?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Has new files?": {
+      "main": [
+        [
+          { "node": "Download file", "type": "main", "index": 0 },
+          { "node": "Get Master company list", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          { "node": "Extract from File", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          { "node": "Merge PDF + Companies", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get Master company list": {
+      "main": [
+        [
+          { "node": "Merge PDF + Companies", "type": "main", "index": 1 }
+        ]
+      ]
+    },
+    "Merge PDF + Companies": {
+      "main": [
+        [
+          { "node": "Prepare AI Prompt", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          { "node": "AI Extract Tax Data", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "AI Extract Tax Data": {
+      "main": [
+        [
+          { "node": "Parse AI Response", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          { "node": "Company Matched?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Company Matched?": {
+      "main": [
+        [
+          { "node": "Move to tax folder", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Log unmatched", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Move to tax folder": {
+      "main": [
+        [
+          { "node": "Log to Monthly report", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Log to Monthly report": {
+      "main": [
+        [
+          { "node": "Trigger WF2 Kommo Sync", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Log unmatched": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

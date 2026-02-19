@@ -1,0 +1,838 @@
+{
+  "name": "WF2 - مزامنة Kommo وإرسال WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "tax-kommo-sync",
+        "options": {
+          "responseData": "allEntries"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-200, 300],
+      "id": "trigger-webhook",
+      "name": "Webhook Trigger",
+      "webhookId": "tax-kommo-sync-trigger"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            },
+            {
+              "triggerAtHour": 14
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-200, 520],
+      "id": "trigger-schedule",
+      "name": "Schedule Trigger",
+      "notes": "Runs 1 hour after WF1 as safety net"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 881496910,
+          "mode": "list",
+          "cachedResultName": "Monthly report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=881496910"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [80, 300],
+      "id": "sheets-get-report",
+      "name": "Get Monthly report",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629998503,
+          "mode": "list",
+          "cachedResultName": "ALL company",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=629998503"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [80, 560],
+      "id": "sheets-get-master",
+      "name": "Get Master company list",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Filter: only matched records that need Kommo sync\n// Get unique companies from today's matched records\n// ============================================\n\nconst reportItems = $('Get Monthly report').all();\nconst masterItems = $('Get Master company list').all();\n\n// Build master lookup by company name\nconst masterMap = {};\nfor (const item of masterItems) {\n  const name = (item.json.companyName || '').trim();\n  if (name) masterMap[name.toLowerCase()] = item.json;\n}\n\n// Filter matched records from today that have a companyName\nconst today = new Date().toISOString().split('T')[0];\nconst todayRecords = reportItems.filter(item => {\n  const d = item.json;\n  return d.status === 'matched' && d.companyName;\n});\n\n// Deduplicate by company name (we only need to sync each company once)\nconst seenCompanies = new Set();\nconst uniqueCompanies = [];\n\nfor (const item of todayRecords) {\n  const name = (item.json.companyName || '').trim().toLowerCase();\n  if (name && !seenCompanies.has(name)) {\n    seenCompanies.add(name);\n    const master = masterMap[name] || {};\n    uniqueCompanies.push({\n      json: {\n        companyName: item.json.companyName,\n        contactPhone: master.contact_phone || item.json.contactPhone || '',\n        contactName: master.contact_first_name || master.contactName || '',\n        contactLastName: master.contact_last_name || '',\n        contactEmail: master.contact_email || '',\n        kommoCompanyId: master.kommoCompanyId || master.kommo_company_id || '',\n        kommoContactId: master.kommoContactId || master.kommo_contact_id || '',\n        driveFolderId: master.taxFolderId || item.json.driveFolderId || '',\n        // Pass latest tax info for WhatsApp message\n        taxType: item.json.taxType || '',\n        month: item.json.month || '',\n        year: item.json.year || '',\n        amount: item.json.amount || ''\n      }\n    });\n  }\n}\n\nif (uniqueCompanies.length === 0) {\n  return [{ json: { _noRecords: true, message: 'No companies to sync' } }];\n}\n\nreturn uniqueCompanies;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 300],
+      "id": "code-prepare-sync",
+      "name": "Prepare companies for sync"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-has-records",
+              "leftValue": "={{ $json._noRecords }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [640, 300],
+      "id": "if-has-records",
+      "name": "Has records to sync?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-has-kommo-company",
+              "leftValue": "={{ $json.kommoCompanyId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [880, 200],
+      "id": "if-kommo-company-exists",
+      "name": "Kommo Company ID exists?"
+    },
+    {
+      "parameters": {
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/companies?query={{ encodeURIComponent($json.companyName) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY4s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 360],
+      "id": "kommo-search-company",
+      "name": "Search Company in Kommo"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Check if company was found in Kommo search\n// If found: extract company ID\n// If not: prepare data for creation\n// ============================================\n\nconst items = $input.all();\nconst prepareItems = $('Has records to sync?').all();\n\nreturn items.map((item, index) => {\n  const response = item.json;\n  const original = prepareItems.find(p => !p.json._noRecords) || prepareItems[index] || { json: {} };\n  const origData = original.json;\n  \n  const companies = response._embedded?.companies || [];\n  const found = companies.length > 0;\n  \n  return {\n    json: {\n      ...origData,\n      kommoCompanyFound: found,\n      kommoCompanyId: found ? String(companies[0].id) : '',\n      kommoCompanyName: found ? companies[0].name : origData.companyName\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1360, 360],
+      "id": "code-check-company",
+      "name": "Check company search result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-company-found",
+              "leftValue": "={{ $json.kommoCompanyFound }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1600, 360],
+      "id": "if-company-found",
+      "name": "Company found in Kommo?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://infodvnlogcom.kommo.com/api/v4/companies",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY4s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"name\": {{ JSON.stringify($json.companyName) }}\n  }\n]",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1840, 520],
+      "id": "kommo-create-company",
+      "name": "Create Company in Kommo"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Extract new company ID after creation\n// ============================================\n\nconst items = $input.all();\nconst origItems = $('Company found in Kommo?').all();\n\nreturn items.map((item, index) => {\n  const response = item.json;\n  const orig = origItems[index]?.json || {};\n  \n  const newCompanies = response._embedded?.companies || [];\n  const newId = newCompanies.length > 0 ? String(newCompanies[0].id) : '';\n  \n  return {\n    json: {\n      ...orig,\n      kommoCompanyId: newId,\n      kommoCompanyCreated: true\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 520],
+      "id": "code-extract-new-company",
+      "name": "Extract new company ID"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [2320, 300],
+      "id": "merge-company-results",
+      "name": "Merge company results"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-has-kommo-contact",
+              "leftValue": "={{ $json.kommoContactId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2560, 300],
+      "id": "if-contact-exists",
+      "name": "Kommo Contact ID exists?"
+    },
+    {
+      "parameters": {
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/contacts?query={{ encodeURIComponent($json.contactPhone || $json.companyName) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY4s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2800, 460],
+      "id": "kommo-search-contact",
+      "name": "Search Contact in Kommo"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Check contact search result\n// If found: verify phone, extract contact_id\n// If not: prepare for creation\n// ============================================\n\nconst items = $input.all();\nconst origItems = $('Kommo Contact ID exists?').all();\n\nreturn items.map((item, index) => {\n  const response = item.json;\n  const orig = origItems[index]?.json || {};\n  \n  const contacts = response._embedded?.contacts || [];\n  const found = contacts.length > 0;\n  \n  let contactId = '';\n  let existingPhone = '';\n  let phoneMatch = false;\n  \n  if (found) {\n    const contact = contacts[0];\n    contactId = String(contact.id);\n    \n    // Extract phone from contact's custom fields\n    if (contact.custom_fields_values) {\n      const phoneField = contact.custom_fields_values.find(f => \n        f.field_code === 'PHONE' || f.field_name === 'Phone'\n      );\n      if (phoneField && phoneField.values && phoneField.values.length > 0) {\n        existingPhone = phoneField.values[0].value || '';\n      }\n    }\n    \n    // Check if phone matches\n    const cleanPhone = (p) => (p || '').replace(/[^+\\d]/g, '');\n    phoneMatch = cleanPhone(existingPhone) === cleanPhone(orig.contactPhone);\n  }\n  \n  return {\n    json: {\n      ...orig,\n      kommoContactFound: found,\n      kommoContactId: contactId,\n      existingPhone: existingPhone,\n      phoneMatch: phoneMatch,\n      needsPhoneUpdate: found && !phoneMatch && orig.contactPhone\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3040, 460],
+      "id": "code-check-contact",
+      "name": "Check contact search result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-contact-found",
+              "leftValue": "={{ $json.kommoContactFound }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3280, 460],
+      "id": "if-contact-found",
+      "name": "Contact found in Kommo?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://infodvnlogcom.kommo.com/api/v4/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY4s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"first_name\": {{ JSON.stringify($json.contactName || $json.companyName) }},\n    \"last_name\": {{ JSON.stringify($json.contactLastName || '') }},\n    \"company_id\": {{ $json.kommoCompanyId || 'null' }},\n    \"custom_fields_values\": [\n      {\n        \"field_code\": \"PHONE\",\n        \"values\": [\n          { \"value\": {{ JSON.stringify($json.contactPhone || '') }} }\n        ]\n      },\n      {\n        \"field_code\": \"EMAIL\",\n        \"values\": [\n          { \"value\": {{ JSON.stringify($json.contactEmail || '') }} }\n        ]\n      }\n    ]\n  }\n]",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3520, 620],
+      "id": "kommo-create-contact",
+      "name": "Create Contact in Kommo"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Extract new contact ID after creation\n// ============================================\n\nconst items = $input.all();\nconst origItems = $('Contact found in Kommo?').all();\n\nreturn items.map((item, index) => {\n  const response = item.json;\n  const orig = origItems[index]?.json || {};\n  \n  const newContacts = response._embedded?.contacts || [];\n  const newId = newContacts.length > 0 ? String(newContacts[0].id) : '';\n  \n  return {\n    json: {\n      ...orig,\n      kommoContactId: newId,\n      kommoContactCreated: true\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3760, 620],
+      "id": "code-extract-new-contact",
+      "name": "Extract new contact ID"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// For existing contacts: check if phone needs update\n// If phone mismatch → update phone in Kommo\n// Otherwise → pass through\n// ============================================\n\nconst items = $input.all();\nreturn items.map(item => {\n  return {\n    json: {\n      ...item.json,\n      // Already have kommoContactId from search\n      kommoContactCreated: false\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3520, 300],
+      "id": "code-existing-contact",
+      "name": "Use existing contact"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [4000, 400],
+      "id": "merge-contact-results",
+      "name": "Merge contact results"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Merge with contacts that already had kommoContactId\n// ============================================\nconst items = $input.all();\nreturn items.map(item => {\n  return {\n    json: {\n      ...item.json,\n      readyForWhatsApp: !!(item.json.kommoContactId)\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2800, 200],
+      "id": "code-contact-already-exists",
+      "name": "Contact already in Master"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [4240, 300],
+      "id": "merge-all-contacts",
+      "name": "Merge all contacts"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk",
+          "mode": "list",
+          "cachedResultName": "ALL DATA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629998503,
+          "mode": "list",
+          "cachedResultName": "ALL company",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fveUwP99EBvghWfE7QRjuNb4baZ1GWnmZFDYY7QWjDk/edit#gid=629998503"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "companyName": "={{ $json.companyName }}",
+            "kommo_company_id": "={{ $json.kommoCompanyId }}",
+            "kommo_contact_id": "={{ $json.kommoContactId }}",
+            "lastSync": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": ["companyName"],
+          "schema": [
+            { "id": "companyName", "displayName": "companyName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "kommo_company_id", "displayName": "kommo_company_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "kommo_contact_id", "displayName": "kommo_contact_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "lastSync", "displayName": "lastSync", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [4480, 300],
+      "id": "sheets-update-master",
+      "name": "Update Master Sheet with IDs",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://infodvnlogcom.kommo.com/api/v4/contacts/{{ $json.kommoContactId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY4s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4720, 300],
+      "id": "kommo-get-contact-details",
+      "name": "Get Contact for WhatsApp"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Extract chat_id for WhatsApp sending\n// ============================================\n\nconst items = $input.all();\nconst masterItems = $('Update Master Sheet with IDs').all();\n\nreturn items.map((item, index) => {\n  const contact = item.json;\n  const masterData = masterItems[index]?.json || {};\n  \n  let chatId = null;\n  \n  // Try to get chat_id from _embedded.chats\n  if (contact._embedded?.chats) {\n    const chats = contact._embedded.chats;\n    // Find WhatsApp chat\n    const whatsappChat = Object.values(chats).find(chat => \n      chat.origin === 'whatsapp' || (chat.origin && chat.origin.includes('whatsapp'))\n    );\n    if (whatsappChat) {\n      chatId = whatsappChat.chat_id || whatsappChat.id;\n    }\n    // Fallback to first available chat\n    if (!chatId) {\n      const firstChat = Object.values(chats)[0];\n      if (firstChat) {\n        chatId = firstChat.chat_id || firstChat.id;\n      }\n    }\n  }\n\n  return {\n    json: {\n      contact_id: masterData.kommoContactId || contact.id,\n      chat_id: chatId,\n      companyName: masterData.companyName,\n      taxType: masterData.taxType || '',\n      month: masterData.month || '',\n      year: masterData.year || '',\n      amount: masterData.amount || '',\n      canSendWhatsApp: !!chatId\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4960, 300],
+      "id": "code-extract-chat-id",
+      "name": "Extract chat_id"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-can-send",
+              "leftValue": "={{ $json.canSendWhatsApp }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [5200, 300],
+      "id": "if-can-send",
+      "name": "Can send WhatsApp?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://infodvnlogcom.kommo.com/v4/whatsapp/template/send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjA4NTI1YzVjNjJhMjRiNDdjNjgxMzA2ZTJiNmY4OTA2NGU4MTVlZmQ1MDcxNDg0ODFiNWI5MzZiYTYxOTRmYzBlZTE0Yjg1MWQzMzAyMDViIn0.eyJhdWQiOiJhNDVhZDE0MC0xNTNlLTRlYWYtOGUyNi0wNTQ1MDU2Njg4MWYiLCJqdGkiOiIwODUyNWM1YzYyYTI0YjQ3YzY4MTMwNmUyYjZmODkwNjRlODE1ZWZkNTA3MTQ4NDgxYjViOTM2YmE2MTk0ZmMwZWUxNGI4NTFkMzMwMjA1YiIsImlhdCI6MTc1MzcxMzgzNCwibmJmIjoxNzUzNzEzODM0LCJleHAiOjE4ODAxNTA0MDAsInN1YiI6IjEyOTI0NzM1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0MzU0NjY3LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiZTlhNTA2YzgtMmY1YS00OTNmLTg0M2EtZmNkMjFlYWJjMmJiIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.RmY4s-CwMgm-wQAg-jT-KYxrVYFYuXx1lNaa4oWVOV7KXZtJor9CwbDSv5Oq4dXN9tXWIHMbDyG6tTqJ2T5BPMBfjQoH4sgNHRXpWaJs0UZFIoliznzRHFZsoVSCX8HedKlxQ5fBLAkHa5PEPzIYIKA_aKqHCDS-lpMQfIzoW1t5mTkOnmBrgDwTz3-Qx-Au0wRrLOMzWb6TbuEx8pgtW6Kt0MTVRGatdXmif6uILpVfZn6A3Cw40NoTHz4oGYq-KkdR_6gKXlgk6XjIOkhcr6_iqjpqm24J_DgeHb_gZZELCLx2hokOu7Ob0_Olt7Q6B1ZM0dvZ_t1liiMq1vQbyQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contact_id\": {{ $json.contact_id }},\n  \"chat_id\": \"{{ $json.chat_id }}\",\n  \"template\": {\n    \"name\": \"KDV\",\n    \"language\": {\n      \"code\": \"ar\"\n    },\n    \"parameters\": []\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [5440, 200],
+      "id": "kommo-send-whatsapp",
+      "name": "Send WhatsApp"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          { "node": "Get Monthly report", "type": "main", "index": 0 },
+          { "node": "Get Master company list", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          { "node": "Get Monthly report", "type": "main", "index": 0 },
+          { "node": "Get Master company list", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get Monthly report": {
+      "main": [
+        [
+          { "node": "Prepare companies for sync", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get Master company list": {
+      "main": [
+        [
+          { "node": "Prepare companies for sync", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Prepare companies for sync": {
+      "main": [
+        [
+          { "node": "Has records to sync?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Has records to sync?": {
+      "main": [
+        [
+          { "node": "Kommo Company ID exists?", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "Kommo Company ID exists?": {
+      "main": [
+        [
+          { "node": "Kommo Contact ID exists?", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Search Company in Kommo", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Search Company in Kommo": {
+      "main": [
+        [
+          { "node": "Check company search result", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check company search result": {
+      "main": [
+        [
+          { "node": "Company found in Kommo?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Company found in Kommo?": {
+      "main": [
+        [
+          { "node": "Kommo Contact ID exists?", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Create Company in Kommo", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Create Company in Kommo": {
+      "main": [
+        [
+          { "node": "Extract new company ID", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract new company ID": {
+      "main": [
+        [
+          { "node": "Kommo Contact ID exists?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Kommo Contact ID exists?": {
+      "main": [
+        [
+          { "node": "Contact already in Master", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Search Contact in Kommo", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Search Contact in Kommo": {
+      "main": [
+        [
+          { "node": "Check contact search result", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check contact search result": {
+      "main": [
+        [
+          { "node": "Contact found in Kommo?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Contact found in Kommo?": {
+      "main": [
+        [
+          { "node": "Use existing contact", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Create Contact in Kommo", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Create Contact in Kommo": {
+      "main": [
+        [
+          { "node": "Extract new contact ID", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract new contact ID": {
+      "main": [
+        [
+          { "node": "Merge contact results", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Use existing contact": {
+      "main": [
+        [
+          { "node": "Merge contact results", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Merge contact results": {
+      "main": [
+        [
+          { "node": "Merge all contacts", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Contact already in Master": {
+      "main": [
+        [
+          { "node": "Merge all contacts", "type": "main", "index": 1 }
+        ]
+      ]
+    },
+    "Merge all contacts": {
+      "main": [
+        [
+          { "node": "Update Master Sheet with IDs", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Update Master Sheet with IDs": {
+      "main": [
+        [
+          { "node": "Get Contact for WhatsApp", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get Contact for WhatsApp": {
+      "main": [
+        [
+          { "node": "Extract chat_id", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract chat_id": {
+      "main": [
+        [
+          { "node": "Can send WhatsApp?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Can send WhatsApp?": {
+      "main": [
+        [
+          { "node": "Send WhatsApp", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "Send WhatsApp": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
