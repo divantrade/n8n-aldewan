@@ -138,7 +138,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Filter out already processed files\n// ============================================\nconst driveFiles = $('Search inside monthly taxes').all();\nconst processedItems = $('Get already processed files').all();\n\n// Build a Set of already processed fileIds\nconst processedFileIds = new Set();\nfor (const item of processedItems) {\n  const fId = item.json.documentId || item.json.fileId || item.json.file_id || '';\n  if (fId) processedFileIds.add(fId);\n}\n\n// Filter: only keep files NOT already processed\nconst newFiles = driveFiles.filter(item => {\n  const fileId = item.json.id || '';\n  return !processedFileIds.has(fileId);\n});\n\nif (newFiles.length === 0) {\n  // Return empty to stop the workflow gracefully\n  return [{ json: { _noNewFiles: true, message: 'No new files to process' } }];\n}\n\nreturn newFiles;"
+        "jsCode": "// ============================================\n// Filter out already processed files\n// ============================================\nconst driveFiles = $('Search inside monthly taxes').all();\nconst processedItems = $('Get already processed files').all();\n\n// Build a Set of already processed fileIds\nconst processedFileIds = new Set();\nfor (const item of processedItems) {\n  const fId = item.json.documentId || item.json.fileId || item.json.file_id || '';\n  if (fId) processedFileIds.add(fId);\n}\n\n// Filter: only keep files NOT already processed\nconst newFiles = driveFiles.filter(item => {\n  const fileId = item.json.id || '';\n  return !processedFileIds.has(fileId);\n});\n\nreturn newFiles;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -148,39 +148,6 @@
       ],
       "id": "code-filter-processed",
       "name": "Filter already processed"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "condition-has-files",
-              "leftValue": "={{ $json.id }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "isNotEmpty"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        800,
-        300
-      ],
-      "id": "if-has-new-files",
-      "name": "Has new files?"
     },
     {
       "parameters": {
@@ -791,17 +758,6 @@
       "main": [
         [
           {
-            "node": "Has new files?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Has new files?": {
-      "main": [
-        [
-          {
             "node": "Download file",
             "type": "main",
             "index": 0
@@ -811,8 +767,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Download file": {
