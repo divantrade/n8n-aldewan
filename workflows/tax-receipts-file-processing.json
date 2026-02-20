@@ -916,6 +916,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "tags": [],
+  "tags": [
+    {
+      "name": "✅ Production"
+    }
+  ],
   "id": "0jEFTWu3hvOOm9zs"
 }

@@ -73,11 +73,71 @@ jobs:
             echo "files=$FILES" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Sync tags to n8n
+        if: steps.detect.outputs.has_changes == 'true'
+        id: tags
+        env:
+          N8N_URL: ${{ secrets.N8N_URL }}
+          N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
+        run: |
+          set -euo pipefail
+          N8N_URL="${N8N_URL%/}"
+
+          # Collect all unique tag names from workflow files
+          TAG_NAMES=$(jq -r '.tags[]?.name // empty' workflows/*.json 2>/dev/null | sort -u)
+
+          if [ -z "$TAG_NAMES" ]; then
+            echo "No tags found in workflow files"
+            echo "tag_map={}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Get existing tags from n8n
+          EXISTING=$(curl -s -k \
+            -H "X-N8N-API-KEY: $N8N_API_KEY" \
+            "$N8N_URL/api/v1/tags?limit=100" --max-time 15)
+
+          # Build name→id map for existing tags
+          declare -A TAG_MAP
+          while IFS= read -r name; do
+            id=$(echo "$EXISTING" | jq -r --arg n "$name" '.data[]? | select(.name == $n) | .id // empty')
+            if [ -n "$id" ]; then
+              echo "  Tag exists: '$name' → ID: $id"
+              TAG_MAP["$name"]="$id"
+            else
+              # Create the tag
+              CREATE_RESP=$(curl -s -k -X POST \
+                -H "X-N8N-API-KEY: $N8N_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "{\"name\": $(echo "$name" | jq -Rs .)}" \
+                "$N8N_URL/api/v1/tags" --max-time 15)
+              new_id=$(echo "$CREATE_RESP" | jq -r '.id // empty')
+              if [ -n "$new_id" ]; then
+                echo "  Tag created: '$name' → ID: $new_id"
+                TAG_MAP["$name"]="$new_id"
+              else
+                echo "::warning::Failed to create tag '$name'"
+              fi
+            fi
+          done <<< "$TAG_NAMES"
+
+          # Export tag map as JSON
+          MAP_JSON="{"
+          first=true
+          for name in "${!TAG_MAP[@]}"; do
+            if [ "$first" = true ]; then first=false; else MAP_JSON+=","; fi
+            MAP_JSON+="$(echo "$name" | jq -Rs .):\"${TAG_MAP[$name]}\""
+          done
+          MAP_JSON+="}"
+          echo "tag_map=$MAP_JSON" >> "$GITHUB_OUTPUT"
+          echo "Tag map: $MAP_JSON"
+
       - name: Deploy workflows to n8n
         if: steps.detect.outputs.has_changes == 'true'
         env:
           N8N_URL: ${{ secrets.N8N_URL }}
           N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
+          TAG_MAP: ${{ steps.tags.outputs.tag_map }}
         run: |
           set -euo pipefail
 
@@ -114,8 +174,19 @@ jobs:
             echo "---"
             echo "Deploying: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
 
-            # Prepare payload - keep ONLY fields the n8n API accepts
-            jq '{name, nodes, connections, settings, staticData}' "$filepath" > /tmp/payload.json
+            # Prepare payload - keep fields the n8n API accepts
+            # Resolve tag names to IDs using TAG_MAP
+            jq --argjson tagmap "${TAG_MAP:-{\}}" '
+              {name, nodes, connections, settings, staticData} +
+              (if (.tags | length) > 0 then
+                {tags: [.tags[] | {id: ($tagmap[.name] // empty)} | select(.id)]}
+              else {} end)
+            ' "$filepath" > /tmp/payload.json
+
+            TAG_COUNT=$(jq '.tags // [] | length' /tmp/payload.json)
+            if [ "$TAG_COUNT" -gt 0 ]; then
+              echo "  Tags: $(jq -r '[.tags[].id] | join(", ")' /tmp/payload.json)"
+            fi
 
             # Test connectivity first
             if [ "$filepath" = "$(echo $FILES | awk '{print $1}')" ]; then
