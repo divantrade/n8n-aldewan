@@ -174,19 +174,8 @@ jobs:
             echo "---"
             echo "Deploying: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
 
-            # Prepare payload - keep fields the n8n API accepts
-            # Resolve tag names to IDs using TAG_MAP
-            jq --argjson tagmap "${TAG_MAP:-{\}}" '
-              {name, nodes, connections, settings, staticData} +
-              (if (.tags | length) > 0 then
-                {tags: [.tags[] | {id: ($tagmap[.name] // empty)} | select(.id)]}
-              else {} end)
-            ' "$filepath" > /tmp/payload.json
-
-            TAG_COUNT=$(jq '.tags // [] | length' /tmp/payload.json)
-            if [ "$TAG_COUNT" -gt 0 ]; then
-              echo "  Tags: $(jq -r '[.tags[].id] | join(", ")' /tmp/payload.json)"
-            fi
+            # Prepare payload - keep ONLY fields the n8n API accepts (no tags)
+            jq '{name, nodes, connections, settings, staticData}' "$filepath" > /tmp/payload.json
 
             # Test connectivity first
             if [ "$filepath" = "$(echo $FILES | awk '{print $1}')" ]; then
@@ -199,7 +188,7 @@ jobs:
               }
             fi
 
-            # Deploy via n8n API (-k allows self-signed SSL certificates, @file avoids arg-too-long)
+            # Deploy workflow via n8n API
             HTTP_CODE=$(curl -s -k -o /tmp/response.json -w "%{http_code}" \
               -X PUT \
               -H "X-N8N-API-KEY: $N8N_API_KEY" \
@@ -213,6 +202,26 @@ jobs:
             if [ "$HTTP_CODE" = "200" ]; then
               echo "  ✅ Deployed successfully: $WORKFLOW_NAME"
               SUCCESS=$((SUCCESS + 1))
+
+              # Apply tags via separate API call (n8n doesn't accept tags in PUT body)
+              TAG_IDS=$(jq --argjson tagmap "${TAG_MAP:-{\}}" -c \
+                '[.tags[]? | {id: ($tagmap[.name] // empty)} | select(.id)]' "$filepath")
+
+              if [ "$TAG_IDS" != "[]" ] && [ "$TAG_IDS" != "null" ] && [ -n "$TAG_IDS" ]; then
+                TAG_HTTP=$(curl -s -k -o /tmp/tag_response.json -w "%{http_code}" \
+                  -X PUT \
+                  -H "X-N8N-API-KEY: $N8N_API_KEY" \
+                  -H "Content-Type: application/json" \
+                  -d "$TAG_IDS" \
+                  "$N8N_URL/api/v1/workflows/$WORKFLOW_ID/tags" \
+                  --max-time 15)
+
+                if [ "$TAG_HTTP" = "200" ]; then
+                  echo "  🏷️  Tags applied successfully"
+                else
+                  echo "  ⚠️  Tags failed (HTTP $TAG_HTTP) - workflow deployed OK"
+                fi
+              fi
             else
               BODY=$(cat /tmp/response.json 2>/dev/null || echo "No response body")
               MSG=$(echo "$BODY" | jq -r '.message // .' 2>/dev/null || echo "$BODY")
