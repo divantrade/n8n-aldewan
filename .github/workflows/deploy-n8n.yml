@@ -88,7 +88,7 @@ jobs:
 
           if [ -z "$TAG_NAMES" ]; then
             echo "No tags found in workflow files"
-            echo "tag_map={}" >> "$GITHUB_OUTPUT"
+            echo "{}" > /tmp/tag_map.json
             exit 0
           fi
 
@@ -121,7 +121,7 @@ jobs:
             fi
           done <<< "$TAG_NAMES"
 
-          # Export tag map as JSON
+          # Export tag map as JSON file (avoids shell/output encoding issues with emojis)
           MAP_JSON="{"
           first=true
           for name in "${!TAG_MAP[@]}"; do
@@ -129,15 +129,15 @@ jobs:
             MAP_JSON+="$(echo "$name" | jq -Rs .):\"${TAG_MAP[$name]}\""
           done
           MAP_JSON+="}"
-          echo "tag_map=$MAP_JSON" >> "$GITHUB_OUTPUT"
+          echo "$MAP_JSON" > /tmp/tag_map.json
           echo "Tag map: $MAP_JSON"
+          echo "Tag map saved to /tmp/tag_map.json"
 
       - name: Deploy workflows to n8n
         if: steps.detect.outputs.has_changes == 'true'
         env:
           N8N_URL: ${{ secrets.N8N_URL }}
           N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
-          TAG_MAP: ${{ steps.tags.outputs.tag_map }}
         run: |
           set -euo pipefail
 
@@ -151,6 +151,14 @@ jobs:
           ERRORS=0
           SUCCESS=0
           SKIPPED=0
+
+          # Load tag map from file (written by previous step)
+          if [ -f /tmp/tag_map.json ]; then
+            echo "Tag map loaded: $(cat /tmp/tag_map.json)"
+          else
+            echo "{}" > /tmp/tag_map.json
+            echo "No tag map file found, using empty map"
+          fi
 
           for filepath in $FILES; do
             filename=$(basename "$filepath")
@@ -204,8 +212,11 @@ jobs:
               SUCCESS=$((SUCCESS + 1))
 
               # Apply tags via separate API call (n8n doesn't accept tags in PUT body)
-              TAG_IDS=$(jq --argjson tagmap "${TAG_MAP:-{\}}" -c \
-                '[.tags[]? | {id: ($tagmap[.name] // empty)} | select(.id)]' "$filepath")
+              # Read tag map from file to avoid shell encoding issues with emojis
+              TAG_IDS=$(jq --slurpfile tagmap /tmp/tag_map.json -c \
+                '[.tags[]? | {id: ($tagmap[0][.name] // empty)} | select(.id)]' "$filepath")
+
+              echo "  Tags to apply: $TAG_IDS"
 
               if [ "$TAG_IDS" != "[]" ] && [ "$TAG_IDS" != "null" ] && [ -n "$TAG_IDS" ]; then
                 TAG_HTTP=$(curl -s -k -o /tmp/tag_response.json -w "%{http_code}" \
@@ -219,7 +230,8 @@ jobs:
                 if [ "$TAG_HTTP" = "200" ]; then
                   echo "  🏷️  Tags applied successfully"
                 else
-                  echo "  ⚠️  Tags failed (HTTP $TAG_HTTP) - workflow deployed OK"
+                  TAG_BODY=$(cat /tmp/tag_response.json 2>/dev/null || echo "No response")
+                  echo "  ⚠️  Tags failed (HTTP $TAG_HTTP): $TAG_BODY"
                 fi
               fi
             else
