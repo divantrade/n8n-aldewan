@@ -161,11 +161,11 @@
           "conditions": [
             {
               "id": "condition-has-files",
-              "leftValue": "={{ $json._noNewFiles }}",
-              "rightValue": true,
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
               "operator": {
-                "type": "boolean",
-                "operation": "notTrue"
+                "type": "string",
+                "operation": "isNotEmpty"
               }
             }
           ],
