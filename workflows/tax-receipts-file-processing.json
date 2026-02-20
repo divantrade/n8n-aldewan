@@ -176,6 +176,20 @@
     },
     {
       "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1160,
+        200
+      ],
+      "id": "split-batches",
+      "name": "Process One File"
+    },
+    {
+      "parameters": {
         "operation": "pdf",
         "binaryPropertyName": "=data",
         "options": {}
@@ -183,7 +197,7 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        1280,
+        1400,
         200
       ],
       "id": "extract-pdf",
@@ -774,6 +788,24 @@
       "main": [
         [
           {
+            "node": "Process One File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process One File": {
+      "main": [
+        [
+          {
+            "node": "Merge PDF + Companies",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Extract from File",
             "type": "main",
             "index": 0
@@ -785,7 +817,7 @@
       "main": [
         [
           {
-            "node": "Merge PDF + Companies",
+            "node": "Process One File",
             "type": "main",
             "index": 0
           }
