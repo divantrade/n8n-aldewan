@@ -1,5 +1,5 @@
 {
-  "name": "WF2 - مزامنة Kommo وإرسال WhatsApp",
+  "name": "ايصالات الضرائب - مزامنة كومو وواتساب",
   "nodes": [
     {
       "parameters": {
@@ -11,7 +11,10 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-200, 300],
+      "position": [
+        -200,
+        300
+      ],
       "id": "trigger-webhook",
       "name": "Webhook Trigger",
       "webhookId": "tax-kommo-sync-trigger"
@@ -31,7 +34,10 @@
       },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-200, 520],
+      "position": [
+        -200,
+        520
+      ],
       "id": "trigger-schedule",
       "name": "Schedule Trigger",
       "notes": "Runs 1 hour after WF1 as safety net"
@@ -56,7 +62,10 @@
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
-      "position": [80, 300],
+      "position": [
+        80,
+        300
+      ],
       "id": "sheets-get-report",
       "name": "Get Monthly report",
       "alwaysOutputData": true,
@@ -87,7 +96,10 @@
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
-      "position": [80, 560],
+      "position": [
+        80,
+        560
+      ],
       "id": "sheets-get-master",
       "name": "Get Master company list",
       "alwaysOutputData": true,
@@ -105,7 +117,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [400, 300],
+      "position": [
+        400,
+        300
+      ],
       "id": "code-prepare-sync",
       "name": "Prepare companies for sync"
     },
@@ -135,7 +150,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [640, 300],
+      "position": [
+        640,
+        300
+      ],
       "id": "if-has-records",
       "name": "Has records to sync?"
     },
@@ -166,7 +184,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [880, 200],
+      "position": [
+        880,
+        200
+      ],
       "id": "if-kommo-company-exists",
       "name": "Kommo Company ID exists?"
     },
@@ -196,7 +217,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1120, 360],
+      "position": [
+        1120,
+        360
+      ],
       "id": "kommo-search-company",
       "name": "Search Company in Kommo"
     },
@@ -206,7 +230,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1360, 360],
+      "position": [
+        1360,
+        360
+      ],
       "id": "code-check-company",
       "name": "Check company search result"
     },
@@ -236,7 +263,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1600, 360],
+      "position": [
+        1600,
+        360
+      ],
       "id": "if-company-found",
       "name": "Company found in Kommo?"
     },
@@ -270,7 +300,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1840, 520],
+      "position": [
+        1840,
+        520
+      ],
       "id": "kommo-create-company",
       "name": "Create Company in Kommo"
     },
@@ -280,7 +313,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2080, 520],
+      "position": [
+        2080,
+        520
+      ],
       "id": "code-extract-new-company",
       "name": "Extract new company ID"
     },
@@ -288,7 +324,10 @@
       "parameters": {},
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [2320, 300],
+      "position": [
+        2320,
+        300
+      ],
       "id": "merge-company-results",
       "name": "Merge company results"
     },
@@ -319,7 +358,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [2560, 300],
+      "position": [
+        2560,
+        300
+      ],
       "id": "if-contact-exists",
       "name": "Kommo Contact ID exists?"
     },
@@ -349,7 +391,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2800, 460],
+      "position": [
+        2800,
+        460
+      ],
       "id": "kommo-search-contact",
       "name": "Search Contact in Kommo"
     },
@@ -359,7 +404,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3040, 460],
+      "position": [
+        3040,
+        460
+      ],
       "id": "code-check-contact",
       "name": "Check contact search result"
     },
@@ -389,7 +437,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [3280, 460],
+      "position": [
+        3280,
+        460
+      ],
       "id": "if-contact-found",
       "name": "Contact found in Kommo?"
     },
@@ -423,7 +474,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3520, 620],
+      "position": [
+        3520,
+        620
+      ],
       "id": "kommo-create-contact",
       "name": "Create Contact in Kommo"
     },
@@ -433,7 +487,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3760, 620],
+      "position": [
+        3760,
+        620
+      ],
       "id": "code-extract-new-contact",
       "name": "Extract new contact ID"
     },
@@ -443,7 +500,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3520, 300],
+      "position": [
+        3520,
+        300
+      ],
       "id": "code-existing-contact",
       "name": "Use existing contact"
     },
@@ -451,7 +511,10 @@
       "parameters": {},
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [4000, 400],
+      "position": [
+        4000,
+        400
+      ],
       "id": "merge-contact-results",
       "name": "Merge contact results"
     },
@@ -461,7 +524,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2800, 200],
+      "position": [
+        2800,
+        200
+      ],
       "id": "code-contact-already-exists",
       "name": "Contact already in Master"
     },
@@ -469,7 +535,10 @@
       "parameters": {},
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [4240, 300],
+      "position": [
+        4240,
+        300
+      ],
       "id": "merge-all-contacts",
       "name": "Merge all contacts"
     },
@@ -498,19 +567,56 @@
             "kommo_contact_id": "={{ $json.kommoContactId }}",
             "lastSync": "={{ new Date().toISOString() }}"
           },
-          "matchingColumns": ["companyName"],
+          "matchingColumns": [
+            "companyName"
+          ],
           "schema": [
-            { "id": "companyName", "displayName": "companyName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "kommo_company_id", "displayName": "kommo_company_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "kommo_contact_id", "displayName": "kommo_contact_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "lastSync", "displayName": "lastSync", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kommo_company_id",
+              "displayName": "kommo_company_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kommo_contact_id",
+              "displayName": "kommo_contact_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lastSync",
+              "displayName": "lastSync",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
           ]
         },
         "options": {}
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
-      "position": [4480, 300],
+      "position": [
+        4480,
+        300
+      ],
       "id": "sheets-update-master",
       "name": "Update Master Sheet with IDs",
       "credentials": {
@@ -546,7 +652,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4720, 300],
+      "position": [
+        4720,
+        300
+      ],
       "id": "kommo-get-contact-details",
       "name": "Get Contact for WhatsApp"
     },
@@ -556,7 +665,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [4960, 300],
+      "position": [
+        4960,
+        300
+      ],
       "id": "code-extract-chat-id",
       "name": "Extract chat_id"
     },
@@ -586,7 +698,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [5200, 300],
+      "position": [
+        5200,
+        300
+      ],
       "id": "if-can-send",
       "name": "Can send WhatsApp?"
     },
@@ -620,7 +735,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [5440, 200],
+      "position": [
+        5440,
+        200
+      ],
       "id": "kommo-send-whatsapp",
       "name": "Send WhatsApp"
     }
@@ -629,44 +747,76 @@
     "Webhook Trigger": {
       "main": [
         [
-          { "node": "Get Monthly report", "type": "main", "index": 0 },
-          { "node": "Get Master company list", "type": "main", "index": 0 }
+          {
+            "node": "Get Monthly report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Master company list",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Schedule Trigger": {
       "main": [
         [
-          { "node": "Get Monthly report", "type": "main", "index": 0 },
-          { "node": "Get Master company list", "type": "main", "index": 0 }
+          {
+            "node": "Get Monthly report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Master company list",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Get Monthly report": {
       "main": [
         [
-          { "node": "Prepare companies for sync", "type": "main", "index": 0 }
+          {
+            "node": "Prepare companies for sync",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Get Master company list": {
       "main": [
         [
-          { "node": "Prepare companies for sync", "type": "main", "index": 0 }
+          {
+            "node": "Prepare companies for sync",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Prepare companies for sync": {
       "main": [
         [
-          { "node": "Has records to sync?", "type": "main", "index": 0 }
+          {
+            "node": "Has records to sync?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Has records to sync?": {
       "main": [
         [
-          { "node": "Kommo Company ID exists?", "type": "main", "index": 0 }
+          {
+            "node": "Kommo Company ID exists?",
+            "type": "main",
+            "index": 0
+          }
         ],
         []
       ]
@@ -674,152 +824,248 @@
     "Kommo Company ID exists?": {
       "main": [
         [
-          { "node": "Kommo Contact ID exists?", "type": "main", "index": 0 }
+          {
+            "node": "Kommo Contact ID exists?",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Search Company in Kommo", "type": "main", "index": 0 }
+          {
+            "node": "Search Company in Kommo",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Search Company in Kommo": {
       "main": [
         [
-          { "node": "Check company search result", "type": "main", "index": 0 }
+          {
+            "node": "Check company search result",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Check company search result": {
       "main": [
         [
-          { "node": "Company found in Kommo?", "type": "main", "index": 0 }
+          {
+            "node": "Company found in Kommo?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Company found in Kommo?": {
       "main": [
         [
-          { "node": "Kommo Contact ID exists?", "type": "main", "index": 0 }
+          {
+            "node": "Kommo Contact ID exists?",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Create Company in Kommo", "type": "main", "index": 0 }
+          {
+            "node": "Create Company in Kommo",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Create Company in Kommo": {
       "main": [
         [
-          { "node": "Extract new company ID", "type": "main", "index": 0 }
+          {
+            "node": "Extract new company ID",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Extract new company ID": {
       "main": [
         [
-          { "node": "Kommo Contact ID exists?", "type": "main", "index": 0 }
+          {
+            "node": "Kommo Contact ID exists?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Kommo Contact ID exists?": {
       "main": [
         [
-          { "node": "Contact already in Master", "type": "main", "index": 0 }
+          {
+            "node": "Contact already in Master",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Search Contact in Kommo", "type": "main", "index": 0 }
+          {
+            "node": "Search Contact in Kommo",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Search Contact in Kommo": {
       "main": [
         [
-          { "node": "Check contact search result", "type": "main", "index": 0 }
+          {
+            "node": "Check contact search result",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Check contact search result": {
       "main": [
         [
-          { "node": "Contact found in Kommo?", "type": "main", "index": 0 }
+          {
+            "node": "Contact found in Kommo?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Contact found in Kommo?": {
       "main": [
         [
-          { "node": "Use existing contact", "type": "main", "index": 0 }
+          {
+            "node": "Use existing contact",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Create Contact in Kommo", "type": "main", "index": 0 }
+          {
+            "node": "Create Contact in Kommo",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Create Contact in Kommo": {
       "main": [
         [
-          { "node": "Extract new contact ID", "type": "main", "index": 0 }
+          {
+            "node": "Extract new contact ID",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Extract new contact ID": {
       "main": [
         [
-          { "node": "Merge contact results", "type": "main", "index": 0 }
+          {
+            "node": "Merge contact results",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Use existing contact": {
       "main": [
         [
-          { "node": "Merge contact results", "type": "main", "index": 0 }
+          {
+            "node": "Merge contact results",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Merge contact results": {
       "main": [
         [
-          { "node": "Merge all contacts", "type": "main", "index": 0 }
+          {
+            "node": "Merge all contacts",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Contact already in Master": {
       "main": [
         [
-          { "node": "Merge all contacts", "type": "main", "index": 1 }
+          {
+            "node": "Merge all contacts",
+            "type": "main",
+            "index": 1
+          }
         ]
       ]
     },
     "Merge all contacts": {
       "main": [
         [
-          { "node": "Update Master Sheet with IDs", "type": "main", "index": 0 }
+          {
+            "node": "Update Master Sheet with IDs",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Update Master Sheet with IDs": {
       "main": [
         [
-          { "node": "Get Contact for WhatsApp", "type": "main", "index": 0 }
+          {
+            "node": "Get Contact for WhatsApp",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Get Contact for WhatsApp": {
       "main": [
         [
-          { "node": "Extract chat_id", "type": "main", "index": 0 }
+          {
+            "node": "Extract chat_id",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Extract chat_id": {
       "main": [
         [
-          { "node": "Can send WhatsApp?", "type": "main", "index": 0 }
+          {
+            "node": "Can send WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Can send WhatsApp?": {
       "main": [
         [
-          { "node": "Send WhatsApp", "type": "main", "index": 0 }
+          {
+            "node": "Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
         ],
         []
       ]
@@ -834,5 +1080,6 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "tags": []
+  "tags": [],
+  "id": "uV2oSAiFQQg5ek4k"
 }
