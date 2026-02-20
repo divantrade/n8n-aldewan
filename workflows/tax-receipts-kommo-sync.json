@@ -1080,6 +1080,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "tags": [],
+  "tags": [
+    {
+      "name": "✅ Production"
+    }
+  ],
   "id": "uV2oSAiFQQg5ek4k"
 }
