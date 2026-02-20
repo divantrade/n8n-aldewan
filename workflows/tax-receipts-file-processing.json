@@ -151,6 +151,20 @@
     },
     {
       "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        900,
+        200
+      ],
+      "id": "split-batches",
+      "name": "Process One File"
+    },
+    {
+      "parameters": {
         "operation": "download",
         "fileId": {
           "__rl": true,
@@ -162,7 +176,7 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        1040,
+        1080,
         200
       ],
       "id": "drive-download",
@@ -176,20 +190,6 @@
     },
     {
       "parameters": {
-        "batchSize": 1,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [
-        1160,
-        200
-      ],
-      "id": "split-batches",
-      "name": "Process One File"
-    },
-    {
-      "parameters": {
         "operation": "pdf",
         "binaryPropertyName": "=data",
         "options": {}
@@ -197,11 +197,24 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        1400,
+        1260,
         200
       ],
       "id": "extract-pdf",
       "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Combine extracted PDF text with file metadata\n// ============================================\n// Extract from File wipes original JSON data, so we recover\n// file metadata from the Download node (within this loop iteration)\nconst items = $input.all();\nconst downloadItem = $('Download file').first();\n\nreturn items.map(item => {\n  return {\n    json: {\n      // Extracted PDF data\n      text: item.json.text || '',\n      numpages: item.json.numpages || 0,\n      // File metadata recovered from Download node\n      fileId: downloadItem.json.id || '',\n      fileName: downloadItem.json.name || ''\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        200
+      ],
+      "id": "code-save-file-info",
+      "name": "Save File Info"
     },
     {
       "parameters": {
@@ -224,7 +237,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        1040,
+        900,
         500
       ],
       "id": "sheets-get-companies",
@@ -245,7 +258,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        1520,
+        1620,
         300
       ],
       "id": "merge-data",
@@ -253,12 +266,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Prepare AI prompt: combine PDF text with company list\n// ============================================\n\n// Get ALL items from Merge input (PDFs + Companies mixed together)\nconst allItems = $input.all();\n\n// Separate: PDF items have 'text' field, company items have 'row_number'\nconst pdfItems = allItems.filter(item => item.json.text !== undefined && item.json.numpages !== undefined);\nconst companyNames = allItems\n  .filter(item => item.json.row_number !== undefined && item.json.companyName)\n  .map(item => item.json.companyName);\n\n// If no companies from input, fallback to direct node reference\nconst finalCompanyNames = companyNames.length > 0 ? companyNames\n  : $('Get Master company list').all().map(item => item.json.companyName || '').filter(n => n);\n\n// For each PDF item, build a lean prompt\nreturn pdfItems.map((item, index) => {\n  const text = item.json.text || '';\n  \n  // File info: try binary metadata, then json fields\n  const fileId = item.binary?.data?.fileId || item.json.id || item.json.fileId || `pdf-${index}`;\n  const fileName = item.binary?.data?.fileName || item.json.name || item.json.fileName || `file-${index}.pdf`;\n\n  const prompt = `You are a Turkish tax document parser. Extract structured data from the following PDF text.\n\nPDF Text:\n---\n${text.substring(0, 4000)}\n---\n\nFile Name: ${fileName}\nFile ID: ${fileId}\n\nCompany List (match the extracted company name to the closest one):\n${finalCompanyNames.join('\\n')}\n\nReturn ONLY valid JSON:\n{\n  \"fileId\": \"${fileId}\",\n  \"companyName\": \"company name from document\",\n  \"matchedCompany\": \"closest match from Company List, or null\",\n  \"taxType\": \"KDV|KDV Tevkifat|SGK|Muhtasar|Kurumlar|Kurumlar Geçici\",\n  \"monthNumber\": \"MM or null\",\n  \"monthName\": \"Turkish month name or null\",\n  \"year\": \"YYYY or null\",\n  \"amount\": 0,\n  \"confidence\": 0.0\n}\n\nRules:\n- Ignore prefixes: TASF. HAL., TASFİYE HALİNDE and suffixes: LİMİTED ŞİRKETİ\n- SOYADI (UNVANI) = company name, Vergilendirme Dönemi = period\n- TOPLAM or ÖDENECEK = amount (Turkish format 1.234,56)`;\n\n  return {\n    json: {\n      fileId: fileId,\n      fileName: fileName,\n      aiPrompt: prompt\n    }\n  };\n});"
+        "jsCode": "// ============================================\n// Prepare AI prompt: combine PDF text with company list\n// ============================================\n\n// Get ALL items from Merge input (PDFs + Companies mixed together)\nconst allItems = $input.all();\n\n// Separate: PDF items have 'text' + 'fileId' fields, company items have 'row_number'\nconst pdfItems = allItems.filter(item => item.json.text !== undefined && item.json.fileId);\nconst companyNames = allItems\n  .filter(item => item.json.row_number !== undefined && item.json.companyName)\n  .map(item => item.json.companyName);\n\n// If no companies from input, fallback to direct node reference\nconst finalCompanyNames = companyNames.length > 0 ? companyNames\n  : $('Get Master company list').all().map(item => item.json.companyName || '').filter(n => n);\n\n// For each PDF item, build a lean prompt\nreturn pdfItems.map((item, index) => {\n  const text = item.json.text || '';\n  const fileId = item.json.fileId || `pdf-${index}`;\n  const fileName = item.json.fileName || `file-${index}.pdf`;\n\n  const prompt = `You are a Turkish tax document parser. Extract structured data from the following PDF text.\n\nPDF Text:\n---\n${text.substring(0, 4000)}\n---\n\nFile Name: ${fileName}\nFile ID: ${fileId}\n\nCompany List (match the extracted company name to the closest one):\n${finalCompanyNames.join('\\n')}\n\nReturn ONLY valid JSON:\n{\n  \"fileId\": \"${fileId}\",\n  \"companyName\": \"company name from document\",\n  \"matchedCompany\": \"closest match from Company List, or null\",\n  \"taxType\": \"KDV|KDV Tevkifat|SGK|Muhtasar|Kurumlar|Kurumlar Geçici\",\n  \"monthNumber\": \"MM or null\",\n  \"monthName\": \"Turkish month name or null\",\n  \"year\": \"YYYY or null\",\n  \"amount\": 0,\n  \"confidence\": 0.0\n}\n\nRules:\n- Ignore prefixes: TASF. HAL., TASFİYE HALİNDE and suffixes: LİMİTED ŞİRKETİ\n- SOYADI (UNVANI) = company name, Vergilendirme Dönemi = period\n- TOPLAM or ÖDENECEK = amount (Turkish format 1.234,56)`;\n\n  return {\n    json: {\n      fileId: fileId,\n      fileName: fileName,\n      aiPrompt: prompt\n    }\n  };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1760,
+        1860,
         300
       ],
       "id": "code-prepare-prompt",
@@ -278,7 +291,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2000,
+        2100,
         300
       ],
       "id": "ai-extract",
@@ -297,7 +310,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2240,
+        2340,
         300
       ],
       "id": "code-parse-response",
@@ -330,7 +343,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2480,
+        2580,
         300
       ],
       "id": "if-matched",
@@ -358,7 +371,7 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        2760,
+        2860,
         200
       ],
       "id": "drive-move-file",
@@ -532,7 +545,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        3000,
+        3100,
         200
       ],
       "id": "sheets-log-matched",
@@ -656,7 +669,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        2760,
+        2860,
         500
       ],
       "id": "sheets-log-unmatched",
@@ -683,7 +696,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3240,
+        3340,
         200
       ],
       "id": "trigger-wf2",
@@ -772,23 +785,12 @@
       "main": [
         [
           {
-            "node": "Download file",
+            "node": "Process One File",
             "type": "main",
             "index": 0
           },
           {
             "node": "Get Master company list",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Download file": {
-      "main": [
-        [
-          {
-            "node": "Process One File",
             "type": "main",
             "index": 0
           }
@@ -806,6 +808,17 @@
         ],
         [
           {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
             "node": "Extract from File",
             "type": "main",
             "index": 0
@@ -814,6 +827,17 @@
       ]
     },
     "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Save File Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save File Info": {
       "main": [
         [
           {
