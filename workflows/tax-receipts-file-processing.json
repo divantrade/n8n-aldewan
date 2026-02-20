@@ -1,5 +1,5 @@
 {
-  "name": "WF1 - معالجة ملفات الضرائب وتوزيعها",
+  "name": "ايصالات الضرائب - معالجة الملفات",
   "nodes": [
     {
       "parameters": {
@@ -16,7 +16,10 @@
       },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-200, 300],
+      "position": [
+        -200,
+        300
+      ],
       "id": "trigger-schedule",
       "name": "Schedule Trigger"
     },
@@ -30,7 +33,10 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-200, 520],
+      "position": [
+        -200,
+        520
+      ],
       "id": "trigger-webhook",
       "name": "Webhook Trigger",
       "webhookId": "tax-receipts-process-manual"
@@ -45,7 +51,10 @@
       },
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [80, 300],
+      "position": [
+        80,
+        300
+      ],
       "id": "drive-search-folder",
       "name": "Search monthly taxes",
       "credentials": {
@@ -66,7 +75,10 @@
       },
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [320, 300],
+      "position": [
+        320,
+        300
+      ],
       "id": "drive-search-files",
       "name": "Search inside monthly taxes",
       "credentials": {
@@ -96,7 +108,10 @@
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
-      "position": [80, 740],
+      "position": [
+        80,
+        740
+      ],
       "id": "sheets-get-processed",
       "name": "Get already processed files",
       "alwaysOutputData": true,
@@ -114,7 +129,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [560, 300],
+      "position": [
+        560,
+        300
+      ],
       "id": "code-filter-processed",
       "name": "Filter already processed"
     },
@@ -144,7 +162,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [800, 300],
+      "position": [
+        800,
+        300
+      ],
       "id": "if-has-new-files",
       "name": "Has new files?"
     },
@@ -160,7 +181,10 @@
       },
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [1040, 200],
+      "position": [
+        1040,
+        200
+      ],
       "id": "drive-download",
       "name": "Download file",
       "credentials": {
@@ -178,7 +202,10 @@
       },
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
-      "position": [1280, 200],
+      "position": [
+        1280,
+        200
+      ],
       "id": "extract-pdf",
       "name": "Extract from File"
     },
@@ -202,7 +229,10 @@
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
-      "position": [1040, 500],
+      "position": [
+        1040,
+        500
+      ],
       "id": "sheets-get-companies",
       "name": "Get Master company list",
       "alwaysOutputData": true,
@@ -218,7 +248,10 @@
       "parameters": {},
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [1520, 300],
+      "position": [
+        1520,
+        300
+      ],
       "id": "merge-data",
       "name": "Merge PDF + Companies"
     },
@@ -228,7 +261,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1760, 300],
+      "position": [
+        1760,
+        300
+      ],
       "id": "code-prepare-prompt",
       "name": "Prepare AI Prompt"
     },
@@ -245,7 +281,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2000, 300],
+      "position": [
+        2000,
+        300
+      ],
       "id": "ai-extract",
       "name": "AI Extract Tax Data",
       "credentials": {
@@ -261,7 +300,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2240, 300],
+      "position": [
+        2240,
+        300
+      ],
       "id": "code-parse-response",
       "name": "Parse AI Response"
     },
@@ -291,7 +333,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [2480, 300],
+      "position": [
+        2480,
+        300
+      ],
       "id": "if-matched",
       "name": "Company Matched?"
     },
@@ -316,7 +361,10 @@
       },
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [2760, 200],
+      "position": [
+        2760,
+        200
+      ],
       "id": "drive-move-file",
       "name": "Move to tax folder",
       "credentials": {
@@ -360,28 +408,137 @@
             "kommoContactId": "={{ $('Parse AI Response').item.json.kommoContactId }}",
             "processedAt": "={{ new Date().toISOString() }}"
           },
-          "matchingColumns": ["fileId"],
+          "matchingColumns": [
+            "fileId"
+          ],
           "schema": [
-            { "id": "fileName", "displayName": "fileName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "companyName", "displayName": "companyName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "taxType", "displayName": "taxType", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "month", "displayName": "month", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "year", "displayName": "year", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "amount", "displayName": "amount", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "confidence", "displayName": "confidence", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "fileId", "displayName": "fileId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "driveFolderId", "displayName": "driveFolderId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "kommoCompanyId", "displayName": "kommoCompanyId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "kommoContactId", "displayName": "kommoContactId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "processedAt", "displayName": "processedAt", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+            {
+              "id": "fileName",
+              "displayName": "fileName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "taxType",
+              "displayName": "taxType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "month",
+              "displayName": "month",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "year",
+              "displayName": "year",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fileId",
+              "displayName": "fileId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "driveFolderId",
+              "displayName": "driveFolderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kommoCompanyId",
+              "displayName": "kommoCompanyId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kommoContactId",
+              "displayName": "kommoContactId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processedAt",
+              "displayName": "processedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
           ]
         },
         "options": {}
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
-      "position": [3000, 200],
+      "position": [
+        3000,
+        200
+      ],
       "id": "sheets-log-matched",
       "name": "Log to Monthly report",
       "credentials": {
@@ -420,23 +577,92 @@
             "processedAt": "={{ new Date().toISOString() }}",
             "note": "={{ $json.message }}"
           },
-          "matchingColumns": ["fileId"],
+          "matchingColumns": [
+            "fileId"
+          ],
           "schema": [
-            { "id": "fileName", "displayName": "fileName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "companyName", "displayName": "companyName", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "taxType", "displayName": "taxType", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "confidence", "displayName": "confidence", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "fileId", "displayName": "fileId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "processedAt", "displayName": "processedAt", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "note", "displayName": "note", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+            {
+              "id": "fileName",
+              "displayName": "fileName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "taxType",
+              "displayName": "taxType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fileId",
+              "displayName": "fileId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processedAt",
+              "displayName": "processedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
           ]
         },
         "options": {}
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
-      "position": [2760, 500],
+      "position": [
+        2760,
+        500
+      ],
       "id": "sheets-log-unmatched",
       "name": "Log unmatched",
       "credentials": {
@@ -460,7 +686,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3240, 200],
+      "position": [
+        3240,
+        200
+      ],
       "id": "trigger-wf2",
       "name": "Trigger WF2 Kommo Sync",
       "notes": "Calls WF2 webhook to start Kommo sync after file processing is complete"
@@ -470,52 +699,92 @@
     "Schedule Trigger": {
       "main": [
         [
-          { "node": "Search monthly taxes", "type": "main", "index": 0 },
-          { "node": "Get already processed files", "type": "main", "index": 0 }
+          {
+            "node": "Search monthly taxes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get already processed files",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Webhook Trigger": {
       "main": [
         [
-          { "node": "Search monthly taxes", "type": "main", "index": 0 },
-          { "node": "Get already processed files", "type": "main", "index": 0 }
+          {
+            "node": "Search monthly taxes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get already processed files",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Search monthly taxes": {
       "main": [
         [
-          { "node": "Search inside monthly taxes", "type": "main", "index": 0 }
+          {
+            "node": "Search inside monthly taxes",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Search inside monthly taxes": {
       "main": [
         [
-          { "node": "Filter already processed", "type": "main", "index": 0 }
+          {
+            "node": "Filter already processed",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Get already processed files": {
       "main": [
         [
-          { "node": "Filter already processed", "type": "main", "index": 0 }
+          {
+            "node": "Filter already processed",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Filter already processed": {
       "main": [
         [
-          { "node": "Has new files?", "type": "main", "index": 0 }
+          {
+            "node": "Has new files?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Has new files?": {
       "main": [
         [
-          { "node": "Download file", "type": "main", "index": 0 },
-          { "node": "Get Master company list", "type": "main", "index": 0 }
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Master company list",
+            "type": "main",
+            "index": 0
+          }
         ],
         []
       ]
@@ -523,73 +792,117 @@
     "Download file": {
       "main": [
         [
-          { "node": "Extract from File", "type": "main", "index": 0 }
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Extract from File": {
       "main": [
         [
-          { "node": "Merge PDF + Companies", "type": "main", "index": 0 }
+          {
+            "node": "Merge PDF + Companies",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Get Master company list": {
       "main": [
         [
-          { "node": "Merge PDF + Companies", "type": "main", "index": 1 }
+          {
+            "node": "Merge PDF + Companies",
+            "type": "main",
+            "index": 1
+          }
         ]
       ]
     },
     "Merge PDF + Companies": {
       "main": [
         [
-          { "node": "Prepare AI Prompt", "type": "main", "index": 0 }
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Prepare AI Prompt": {
       "main": [
         [
-          { "node": "AI Extract Tax Data", "type": "main", "index": 0 }
+          {
+            "node": "AI Extract Tax Data",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "AI Extract Tax Data": {
       "main": [
         [
-          { "node": "Parse AI Response", "type": "main", "index": 0 }
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Parse AI Response": {
       "main": [
         [
-          { "node": "Company Matched?", "type": "main", "index": 0 }
+          {
+            "node": "Company Matched?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Company Matched?": {
       "main": [
         [
-          { "node": "Move to tax folder", "type": "main", "index": 0 }
+          {
+            "node": "Move to tax folder",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Log unmatched", "type": "main", "index": 0 }
+          {
+            "node": "Log unmatched",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Move to tax folder": {
       "main": [
         [
-          { "node": "Log to Monthly report", "type": "main", "index": 0 }
+          {
+            "node": "Log to Monthly report",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Log to Monthly report": {
       "main": [
         [
-          { "node": "Trigger WF2 Kommo Sync", "type": "main", "index": 0 }
+          {
+            "node": "Trigger WF2 Kommo Sync",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -603,5 +916,6 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "tags": []
+  "tags": [],
+  "id": "0jEFTWu3hvOOm9zs"
 }
