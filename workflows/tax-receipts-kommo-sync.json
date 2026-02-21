@@ -2,22 +2,15 @@
   "name": "ايصالات الضرائب - مزامنة كومو وواتساب",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "GET",
-        "path": "tax-kommo-sync",
-        "options": {
-          "responseData": "allEntries"
-        }
-      },
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
+      "parameters": {},
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
       "position": [
         -200,
         300
       ],
       "id": "trigger-webhook",
-      "name": "Webhook Trigger",
-      "webhookId": "tax-kommo-sync-trigger"
+      "name": "Execute Workflow Trigger"
     },
     {
       "parameters": {
@@ -744,7 +737,7 @@
     }
   ],
   "connections": {
-    "Webhook Trigger": {
+    "Execute Workflow Trigger": {
       "main": [
         [
           {
