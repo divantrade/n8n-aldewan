@@ -683,25 +683,22 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.N8N_WEBHOOK_URL || 'http://localhost:5678' }}/webhook/tax-kommo-sync",
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
+        "workflowId": {
+          "__rl": true,
+          "value": "uV2oSAiFQQg5ek4k",
+          "mode": "id"
+        },
+        "options": {}
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         3340,
         200
       ],
       "id": "trigger-wf2",
       "name": "Trigger WF2 Kommo Sync",
-      "notes": "Calls WF2 webhook to start Kommo sync after file processing is complete"
+      "notes": "Executes WF2 (Kommo sync) directly after file processing is complete"
     }
   ],
   "connections": {
