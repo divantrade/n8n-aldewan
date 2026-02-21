@@ -403,27 +403,81 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "fileName": "={{ $('Parse AI Response').item.json.fileName }}",
+            "batchDate": "={{ new Date().toISOString().split('T')[0] }}",
+            "batchtime": "={{ new Date().toISOString().split('T')[1].split('.')[0] }}",
+            "Company type": "={{ $('Parse AI Response').item.json.taxType }}",
+            "folderName": "={{ $('Parse AI Response').item.json.taxFolderName }}",
+            "folderId": "={{ $('Parse AI Response').item.json.taxFolderId }}",
+            "documentId": "={{ $('Parse AI Response').item.json.fileId }}",
+            "documentName": "={{ $('Parse AI Response').item.json.fileName }}",
             "companyName": "={{ $('Parse AI Response').item.json.matchedCompanyName }}",
-            "taxType": "={{ $('Parse AI Response').item.json.taxType }}",
             "month": "={{ $('Parse AI Response').item.json.monthName }}",
-            "year": "={{ $('Parse AI Response').item.json.year }}",
-            "amount": "={{ $('Parse AI Response').item.json.formattedAmount }}",
-            "status": "=matched",
-            "confidence": "={{ $('Parse AI Response').item.json.confidence }}",
-            "fileId": "={{ $('Parse AI Response').item.json.fileId }}",
-            "driveFolderId": "={{ $('Parse AI Response').item.json.taxFolderId }}",
-            "kommoCompanyId": "={{ $('Parse AI Response').item.json.kommoCompanyId }}",
-            "kommoContactId": "={{ $('Parse AI Response').item.json.kommoContactId }}",
-            "processedAt": "={{ new Date().toISOString() }}"
+            "taxType": "={{ $('Parse AI Response').item.json.taxType }}",
+            "message": "={{ $('Parse AI Response').item.json.message }}",
+            "status": "={{ $('Parse AI Response').item.json.status }}",
+            "contact_phone": "={{ $('Parse AI Response').item.json.contactPhone }}"
           },
           "matchingColumns": [
-            "fileId"
+            "documentId"
           ],
           "schema": [
             {
-              "id": "fileName",
-              "displayName": "fileName",
+              "id": "batchDate",
+              "displayName": "batchDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "batchtime",
+              "displayName": "batchtime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company type",
+              "displayName": "Company type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "folderName",
+              "displayName": "folderName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "folderId",
+              "displayName": "folderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "documentId",
+              "displayName": "documentId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "documentName",
+              "displayName": "documentName",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -440,15 +494,6 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "taxType",
-              "displayName": "taxType",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
               "id": "month",
               "displayName": "month",
               "required": false,
@@ -458,8 +503,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "year",
-              "displayName": "year",
+              "id": "taxType",
+              "displayName": "taxType",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -467,8 +512,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "amount",
-              "displayName": "amount",
+              "id": "message",
+              "displayName": "message",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -485,8 +530,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "confidence",
-              "displayName": "confidence",
+              "id": "contact_first",
+              "displayName": "contact_first",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -494,8 +539,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "fileId",
-              "displayName": "fileId",
+              "id": "contact_last",
+              "displayName": "contact_last",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -503,8 +548,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "driveFolderId",
-              "displayName": "driveFolderId",
+              "id": "full_name",
+              "displayName": "full_name",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -512,8 +557,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "kommoCompanyId",
-              "displayName": "kommoCompanyId",
+              "id": "contact_phone",
+              "displayName": "contact_phone",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -521,8 +566,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "kommoContactId",
-              "displayName": "kommoContactId",
+              "id": "contact_email",
+              "displayName": "contact_email",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -530,8 +575,35 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "processedAt",
-              "displayName": "processedAt",
+              "id": "leadId",
+              "displayName": "leadId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tagıd",
+              "displayName": "tagıd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message2",
+              "displayName": "message2",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -577,22 +649,77 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "fileName": "={{ $json.fileName }}",
+            "batchDate": "={{ new Date().toISOString().split('T')[0] }}",
+            "batchtime": "={{ new Date().toISOString().split('T')[1].split('.')[0] }}",
+            "Company type": "={{ $json.taxType }}",
+            "documentId": "={{ $json.fileId }}",
+            "documentName": "={{ $json.fileName }}",
             "companyName": "={{ $json.companyName }}",
             "taxType": "={{ $json.taxType }}",
-            "status": "=unmatched",
-            "confidence": "={{ $json.confidence }}",
-            "fileId": "={{ $json.fileId }}",
-            "processedAt": "={{ new Date().toISOString() }}",
-            "note": "={{ $json.message }}"
+            "message": "={{ $json.message }}",
+            "status": "=unmatched"
           },
           "matchingColumns": [
-            "fileId"
+            "documentId"
           ],
           "schema": [
             {
-              "id": "fileName",
-              "displayName": "fileName",
+              "id": "batchDate",
+              "displayName": "batchDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "batchtime",
+              "displayName": "batchtime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company type",
+              "displayName": "Company type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "folderName",
+              "displayName": "folderName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "folderId",
+              "displayName": "folderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "documentId",
+              "displayName": "documentId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "documentName",
+              "displayName": "documentName",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -609,8 +736,26 @@
               "canBeUsedToMatch": true
             },
             {
+              "id": "month",
+              "displayName": "month",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
               "id": "taxType",
               "displayName": "taxType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -627,8 +772,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "confidence",
-              "displayName": "confidence",
+              "id": "contact_first",
+              "displayName": "contact_first",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -636,8 +781,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "fileId",
-              "displayName": "fileId",
+              "id": "contact_last",
+              "displayName": "contact_last",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -645,8 +790,8 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "processedAt",
-              "displayName": "processedAt",
+              "id": "full_name",
+              "displayName": "full_name",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -654,8 +799,53 @@
               "canBeUsedToMatch": true
             },
             {
-              "id": "note",
-              "displayName": "note",
+              "id": "contact_phone",
+              "displayName": "contact_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "leadId",
+              "displayName": "leadId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tagıd",
+              "displayName": "tagıd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message2",
+              "displayName": "message2",
               "required": false,
               "defaultMatch": false,
               "display": true,
