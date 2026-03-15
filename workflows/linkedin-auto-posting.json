@@ -1,0 +1,622 @@
+{
+  "name": "النشر التلقائي على لينكد إن - LinkedIn Auto Posting",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000001",
+      "name": "جدولة النشر - Publishing Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-800, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $env.LINKEDIN_CONTENT_SHEET_URL }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "المحتوى - Content"
+        },
+        "options": {
+          "range": "A:H"
+        }
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000002",
+      "name": "قراءة المحتوى من Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-560, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json['الحالة'] || $json['status'] }}",
+              "rightValue": "جاهز",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "id": "filter-status-ready"
+            },
+            {
+              "leftValue": "={{ $json['تاريخ النشر'] || $json['publish_date'] }}",
+              "rightValue": "={{ $now.format('yyyy-MM-dd') }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "id": "filter-date-today"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000003",
+      "name": "تصفية المحتوى اليومي",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [-320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// قائمة صفحات LinkedIn التي سيتم النشر عليها\n// LinkedIn pages to post to\nconst pages = [\n  // أضف صفحاتك هنا - Add your pages here\n  // { id: 'PAGE_ID_1', name: 'اسم الصفحة 1', accessToken: '' },\n  // { id: 'PAGE_ID_2', name: 'اسم الصفحة 2', accessToken: '' },\n];\n\n// قراءة الصفحات من متغيرات البيئة\n// Read pages from environment variables\nconst pagesFromEnv = $env.LINKEDIN_PAGES ? JSON.parse($env.LINKEDIN_PAGES) : [];\nconst allPages = pages.length > 0 ? pages : pagesFromEnv;\n\nif (allPages.length === 0) {\n  throw new Error('لم يتم تكوين صفحات LinkedIn. يرجى إضافة الصفحات في متغيرات البيئة LINKEDIN_PAGES');\n}\n\nconst items = [];\nfor (const item of $input.all()) {\n  for (const page of allPages) {\n    items.push({\n      json: {\n        ...item.json,\n        pageId: page.id,\n        pageName: page.name,\n        accessToken: page.accessToken || $env[`LINKEDIN_TOKEN_${page.id}`] || '',\n        postContent: item.json['المحتوى'] || item.json['content'] || '',\n        postTitle: item.json['العنوان'] || item.json['title'] || '',\n        imageUrl: item.json['رابط الصورة'] || item.json['image_url'] || '',\n        rowNumber: item.json['row_number'] || item.json['__rowNumber'] || '',\n      }\n    });\n  }\n}\n\nreturn items;"
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000004",
+      "name": "تجهيز المنشورات لكل صفحة",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.imageUrl }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "id": "check-image"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000005",
+      "name": "هل يوجد صورة؟",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [160, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            },
+            {
+              "name": "LinkedIn-Version",
+              "value": "202402"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"author\": \"urn:li:organization:{{ $json.pageId }}\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": \"{{ $json.postContent }}\"\n      },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000006",
+      "name": "نشر نص فقط على LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 420],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "LinkedIn Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            },
+            {
+              "name": "LinkedIn-Version",
+              "value": "202402"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"author\": \"urn:li:organization:{{ $json.pageId }}\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": \"{{ $json.postContent }}\"\n      },\n      \"shareMediaCategory\": \"ARTICLE\",\n      \"media\": [\n        {\n          \"status\": \"READY\",\n          \"originalUrl\": \"{{ $json.imageUrl }}\",\n          \"description\": {\n            \"text\": \"{{ $json.postTitle }}\"\n          }\n        }\n      ]\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000007",
+      "name": "نشر مع صورة على LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "LinkedIn Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// تجميع نتائج النشر\nconst results = $input.all();\nconst summary = {\n  totalPosts: results.length,\n  successful: 0,\n  failed: 0,\n  details: []\n};\n\nfor (const result of results) {\n  const statusCode = result.json.statusCode || result.json.$response?.statusCode || 201;\n  const isSuccess = statusCode >= 200 && statusCode < 300;\n  \n  if (isSuccess) {\n    summary.successful++;\n  } else {\n    summary.failed++;\n  }\n  \n  summary.details.push({\n    page: result.json.pageName || result.json.pageId || 'unknown',\n    status: isSuccess ? 'نجح ✅' : 'فشل ❌',\n    statusCode: statusCode,\n    response: result.json.id || result.json.message || ''\n  });\n}\n\nreturn [{ json: summary }];"
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000008",
+      "name": "تجميع النتائج",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $env.LINKEDIN_CONTENT_SHEET_URL }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "المحتوى - Content"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "الحالة": "تم النشر",
+            "status": "published"
+          }
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000009",
+      "name": "تحديث الحالة في Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [940, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4444-aaaa-000000000010",
+      "name": "No Operation",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [940, 500]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "b2c3d4e5-2222-5555-bbbb-000000000001",
+      "name": "جدولة توليد المحتوى - Content Generation Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-800, -200]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $env.LINKEDIN_CONTENT_SHEET_URL }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "المحتوى - Content"
+        },
+        "options": {
+          "range": "A:H"
+        }
+      },
+      "id": "b2c3d4e5-2222-5555-bbbb-000000000002",
+      "name": "قراءة المواضيع من Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-560, -200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json['الحالة'] || $json['status'] }}",
+              "rightValue": "يحتاج محتوى",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "id": "filter-needs-content"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2c3d4e5-2222-5555-bbbb-000000000003",
+      "name": "تصفية المواضيع التي تحتاج محتوى",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [-320, -200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// تجهيز البرومبت لتوليد محتوى LinkedIn\nconst item = $input.first();\nconst topic = item.json['الموضوع'] || item.json['topic'] || item.json['العنوان'] || item.json['title'] || '';\nconst tone = item.json['النبرة'] || item.json['tone'] || 'احترافي';\nconst language = item.json['اللغة'] || item.json['language'] || 'ar';\nconst companyDescription = $env.LINKEDIN_COMPANY_DESCRIPTION || 'شركة متخصصة';\nconst contentNotes = item.json['ملاحظات'] || item.json['notes'] || '';\n\nconst langInstruction = language === 'en' \n  ? 'Write the post in English.' \n  : language === 'both' \n    ? 'Write the post in both Arabic and English.'\n    : 'اكتب المنشور باللغة العربية.';\n\nconst prompt = `أنت خبير في كتابة محتوى LinkedIn احترافي وجذاب.\n\nمعلومات الشركة: ${companyDescription}\n\nالمطلوب: اكتب منشور LinkedIn عن الموضوع التالي:\nالموضوع: ${topic}\nالنبرة المطلوبة: ${tone}\n${contentNotes ? 'ملاحظات إضافية: ' + contentNotes : ''}\n${langInstruction}\n\nالقواعد:\n- اكتب منشور بطول 150-300 كلمة\n- استخدم أسلوب جذاب يشجع على التفاعل\n- أضف 3-5 هاشتاقات مناسبة في النهاية\n- أضف سؤال في النهاية لتشجيع التعليقات\n- لا تستخدم إيموجي بشكل مبالغ فيه (2-4 كحد أقصى)\n- اجعل المنشور عملي ويقدم قيمة حقيقية\n\nاكتب المنشور فقط بدون أي مقدمات أو تعليقات.`;\n\nreturn [{\n  json: {\n    ...item.json,\n    generatedPrompt: prompt,\n    topic: topic,\n    tone: tone,\n    language: language\n  }\n}];"
+      },
+      "id": "b2c3d4e5-2222-5555-bbbb-000000000004",
+      "name": "تجهيز البرومبت",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, -200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.OPENAI_MODEL || 'gpt-4o-mini' }}\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"أنت كاتب محتوى محترف متخصص في LinkedIn. تكتب منشورات جذابة واحترافية.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.generatedPrompt) }}\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 1000\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "b2c3d4e5-2222-5555-bbbb-000000000005",
+      "name": "توليد المحتوى بالذكاء الاصطناعي",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [160, -200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "OpenAI API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// استخراج المحتوى المولّد وتجهيزه للكتابة في Google Sheets\nconst item = $input.first();\nconst aiResponse = item.json;\n\n// استخراج النص المولّد من رد OpenAI\nconst generatedContent = aiResponse.choices?.[0]?.message?.content || '';\n\nif (!generatedContent) {\n  throw new Error('لم يتم توليد محتوى. تأكد من صحة مفتاح OpenAI API.');\n}\n\nreturn [{\n  json: {\n    rowNumber: item.json.rowNumber || item.json.__rowNumber || item.json['row_number'] || '',\n    'المحتوى': generatedContent,\n    'content': generatedContent,\n    'الحالة': 'مسودة',\n    'status': 'draft',\n    'الموضوع': item.json.topic || '',\n    'topic': item.json.topic || ''\n  }\n}];"
+      },
+      "id": "b2c3d4e5-2222-5555-bbbb-000000000006",
+      "name": "استخراج المحتوى المولّد",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, -200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $env.LINKEDIN_CONTENT_SHEET_URL }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "المحتوى - Content"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "المحتوى": "={{ $json['المحتوى'] }}",
+            "content": "={{ $json['content'] }}",
+            "الحالة": "مسودة",
+            "status": "draft"
+          }
+        },
+        "options": {}
+      },
+      "id": "b2c3d4e5-2222-5555-bbbb-000000000007",
+      "name": "حفظ المسودة في Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [700, -200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "جدولة النشر - Publishing Schedule": {
+      "main": [
+        [
+          {
+            "node": "قراءة المحتوى من Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "قراءة المحتوى من Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "تصفية المحتوى اليومي",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "تصفية المحتوى اليومي": {
+      "main": [
+        [
+          {
+            "node": "تجهيز المنشورات لكل صفحة",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "تجهيز المنشورات لكل صفحة": {
+      "main": [
+        [
+          {
+            "node": "هل يوجد صورة؟",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "هل يوجد صورة؟": {
+      "main": [
+        [
+          {
+            "node": "نشر مع صورة على LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "نشر نص فقط على LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "نشر نص فقط على LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "تجميع النتائج",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "نشر مع صورة على LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "تجميع النتائج",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "تجميع النتائج": {
+      "main": [
+        [
+          {
+            "node": "تحديث الحالة في Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "جدولة توليد المحتوى - Content Generation Schedule": {
+      "main": [
+        [
+          {
+            "node": "قراءة المواضيع من Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "قراءة المواضيع من Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "تصفية المواضيع التي تحتاج محتوى",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "تصفية المواضيع التي تحتاج محتوى": {
+      "main": [
+        [
+          {
+            "node": "تجهيز البرومبت",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "تجهيز البرومبت": {
+      "main": [
+        [
+          {
+            "node": "توليد المحتوى بالذكاء الاصطناعي",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "توليد المحتوى بالذكاء الاصطناعي": {
+      "main": [
+        [
+          {
+            "node": "استخراج المحتوى المولّد",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "استخراج المحتوى المولّد": {
+      "main": [
+        [
+          {
+            "node": "حفظ المسودة في Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "tags": [
+    {
+      "name": "LinkedIn",
+      "createdAt": "2026-03-14T00:00:00.000Z",
+      "updatedAt": "2026-03-14T00:00:00.000Z"
+    },
+    {
+      "name": "تسويق",
+      "createdAt": "2026-03-14T00:00:00.000Z",
+      "updatedAt": "2026-03-14T00:00:00.000Z"
+    },
+    {
+      "name": "AI Content",
+      "createdAt": "2026-03-14T00:00:00.000Z",
+      "updatedAt": "2026-03-14T00:00:00.000Z"
+    }
+  ]
+}
