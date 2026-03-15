@@ -171,16 +171,7 @@ jobs:
 
             # Extract workflow ID from JSON content
             WORKFLOW_ID=$(jq -r '.id // empty' "$filepath")
-
-            if [ -z "$WORKFLOW_ID" ]; then
-              echo "::warning::No workflow ID found in $filename, skipping"
-              SKIPPED=$((SKIPPED + 1))
-              continue
-            fi
-
             WORKFLOW_NAME=$(jq -r '.name // "unnamed"' "$filepath")
-            echo "---"
-            echo "Deploying: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
 
             # Prepare payload - keep ONLY fields the n8n API accepts (no tags)
             jq '{name, nodes, connections, settings, staticData}' "$filepath" > /tmp/payload.json
@@ -196,49 +187,94 @@ jobs:
               }
             fi
 
-            # Deploy workflow via n8n API
-            HTTP_CODE=$(curl -s -k -o /tmp/response.json -w "%{http_code}" \
-              -X PUT \
-              -H "X-N8N-API-KEY: $N8N_API_KEY" \
-              -H "Content-Type: application/json" \
-              -d @/tmp/payload.json \
-              "$N8N_URL/api/v1/workflows/$WORKFLOW_ID" \
-              --max-time 30 \
-              --retry 2 \
-              --retry-delay 3)
+            if [ -z "$WORKFLOW_ID" ]; then
+              # NEW workflow - create via POST
+              echo "---"
+              echo "Creating NEW workflow: $WORKFLOW_NAME"
 
-            if [ "$HTTP_CODE" = "200" ]; then
-              echo "  ✅ Deployed successfully: $WORKFLOW_NAME"
-              SUCCESS=$((SUCCESS + 1))
+              HTTP_CODE=$(curl -s -k -o /tmp/response.json -w "%{http_code}" \
+                -X POST \
+                -H "X-N8N-API-KEY: $N8N_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d @/tmp/payload.json \
+                "$N8N_URL/api/v1/workflows" \
+                --max-time 30 \
+                --retry 2 \
+                --retry-delay 3)
 
-              # Apply tags via separate API call (n8n doesn't accept tags in PUT body)
-              # Read tag map from file to avoid shell encoding issues with emojis
-              TAG_IDS=$(jq --slurpfile tagmap /tmp/tag_map.json -c \
-                '[.tags[]? | {id: ($tagmap[0][.name] // empty)} | select(.id)]' "$filepath")
+              if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+                # Extract the new ID from response and update the local file
+                NEW_ID=$(jq -r '.id // empty' /tmp/response.json)
+                if [ -n "$NEW_ID" ]; then
+                  jq --arg id "$NEW_ID" '.id = $id' "$filepath" > /tmp/updated_workflow.json \
+                    && mv /tmp/updated_workflow.json "$filepath"
+                  WORKFLOW_ID="$NEW_ID"
+                  echo "  ✅ Created successfully: $WORKFLOW_NAME (new ID: $NEW_ID)"
 
-              echo "  Tags to apply: $TAG_IDS"
-
-              if [ "$TAG_IDS" != "[]" ] && [ "$TAG_IDS" != "null" ] && [ -n "$TAG_IDS" ]; then
-                TAG_HTTP=$(curl -s -k -o /tmp/tag_response.json -w "%{http_code}" \
-                  -X PUT \
-                  -H "X-N8N-API-KEY: $N8N_API_KEY" \
-                  -H "Content-Type: application/json" \
-                  -d "$TAG_IDS" \
-                  "$N8N_URL/api/v1/workflows/$WORKFLOW_ID/tags" \
-                  --max-time 15)
-
-                if [ "$TAG_HTTP" = "200" ]; then
-                  echo "  🏷️  Tags applied successfully"
-                else
-                  TAG_BODY=$(cat /tmp/tag_response.json 2>/dev/null || echo "No response")
-                  echo "  ⚠️  Tags failed (HTTP $TAG_HTTP): $TAG_BODY"
+                  # Commit the updated ID back to the repo
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git add "$filepath"
+                  git commit -m "chore: add n8n workflow ID to $filename" || true
+                  git push || true
                 fi
+                SUCCESS=$((SUCCESS + 1))
+              else
+                BODY=$(cat /tmp/response.json 2>/dev/null || echo "No response body")
+                MSG=$(echo "$BODY" | jq -r '.message // .' 2>/dev/null || echo "$BODY")
+                echo "::error::Failed to create $WORKFLOW_NAME - HTTP $HTTP_CODE: $MSG"
+                ERRORS=$((ERRORS + 1))
+                continue
               fi
             else
-              BODY=$(cat /tmp/response.json 2>/dev/null || echo "No response body")
-              MSG=$(echo "$BODY" | jq -r '.message // .' 2>/dev/null || echo "$BODY")
-              echo "::error::Failed to deploy $WORKFLOW_NAME (ID: $WORKFLOW_ID) - HTTP $HTTP_CODE: $MSG"
-              ERRORS=$((ERRORS + 1))
+              # EXISTING workflow - update via PUT
+              echo "---"
+              echo "Deploying: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
+
+              HTTP_CODE=$(curl -s -k -o /tmp/response.json -w "%{http_code}" \
+                -X PUT \
+                -H "X-N8N-API-KEY: $N8N_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d @/tmp/payload.json \
+                "$N8N_URL/api/v1/workflows/$WORKFLOW_ID" \
+                --max-time 30 \
+                --retry 2 \
+                --retry-delay 3)
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "  ✅ Deployed successfully: $WORKFLOW_NAME"
+                SUCCESS=$((SUCCESS + 1))
+              else
+                BODY=$(cat /tmp/response.json 2>/dev/null || echo "No response body")
+                MSG=$(echo "$BODY" | jq -r '.message // .' 2>/dev/null || echo "$BODY")
+                echo "::error::Failed to deploy $WORKFLOW_NAME (ID: $WORKFLOW_ID) - HTTP $HTTP_CODE: $MSG"
+                ERRORS=$((ERRORS + 1))
+                continue
+              fi
+            fi
+
+            # Apply tags via separate API call (n8n doesn't accept tags in PUT body)
+            # Read tag map from file to avoid shell encoding issues with emojis
+            TAG_IDS=$(jq --slurpfile tagmap /tmp/tag_map.json -c \
+              '[.tags[]? | {id: ($tagmap[0][.name] // empty)} | select(.id)]' "$filepath")
+
+            echo "  Tags to apply: $TAG_IDS"
+
+            if [ "$TAG_IDS" != "[]" ] && [ "$TAG_IDS" != "null" ] && [ -n "$TAG_IDS" ]; then
+              TAG_HTTP=$(curl -s -k -o /tmp/tag_response.json -w "%{http_code}" \
+                -X PUT \
+                -H "X-N8N-API-KEY: $N8N_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "$TAG_IDS" \
+                "$N8N_URL/api/v1/workflows/$WORKFLOW_ID/tags" \
+                --max-time 15)
+
+              if [ "$TAG_HTTP" = "200" ]; then
+                echo "  🏷️  Tags applied successfully"
+              else
+                TAG_BODY=$(cat /tmp/tag_response.json 2>/dev/null || echo "No response")
+                echo "  ⚠️  Tags failed (HTTP $TAG_HTTP): $TAG_BODY"
+              fi
             fi
           done
 
