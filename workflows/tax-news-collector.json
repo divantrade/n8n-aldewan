@@ -16,7 +16,10 @@
       "name": "جدولة جمع الأخبار - 8 صباحاً",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1200, 300]
+      "position": [
+        -1200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -27,7 +30,10 @@
       "name": "Google News - Vergi",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 0]
+      "position": [
+        -900,
+        0
+      ]
     },
     {
       "parameters": {
@@ -38,7 +44,10 @@
       "name": "Google News - SGK",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 200]
+      "position": [
+        -900,
+        200
+      ]
     },
     {
       "parameters": {
@@ -49,7 +58,10 @@
       "name": "Google News - e-Fatura & Kurumlar",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 400]
+      "position": [
+        -900,
+        400
+      ]
     },
     {
       "parameters": {
@@ -60,7 +72,10 @@
       "name": "Google News - Maliye",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 600]
+      "position": [
+        -900,
+        600
+      ]
     },
     {
       "parameters": {
@@ -71,7 +86,10 @@
       "name": "Dünya Gazetesi",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 800]
+      "position": [
+        -900,
+        800
+      ]
     },
     {
       "parameters": {
@@ -82,7 +100,10 @@
       "name": "Bloomberg HT",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 1000]
+      "position": [
+        -900,
+        1000
+      ]
     },
     {
       "parameters": {
@@ -93,7 +114,10 @@
       "name": "تجميع كل المصادر",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [-500, 400]
+      "position": [
+        -500,
+        400
+      ]
     },
     {
       "parameters": {
@@ -103,7 +127,10 @@
       "name": "تنظيف وتصفية الأخبار",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-250, 400]
+      "position": [
+        -250,
+        400
+      ]
     },
     {
       "parameters": {
@@ -122,7 +149,10 @@
       "name": "AI تحليل الأهمية والتلخيص",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [0, 400],
+      "position": [
+        0,
+        400
+      ],
       "credentials": {
         "openAiApi": {
           "id": "UgxxU7JRYK5Qpel4",
@@ -138,7 +168,10 @@
       "name": "تجهيز البيانات للشيت",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [250, 400]
+      "position": [
+        250,
+        400
+      ]
     },
     {
       "parameters": {
@@ -164,7 +197,10 @@
       "name": "كتابة الأخبار في Google Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [500, 400],
+      "position": [
+        500,
+        400
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "tMsf6bYwBxxWxxVC",
@@ -178,75 +214,168 @@
       "name": "تم الجمع",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [750, 400]
+      "position": [
+        750,
+        400
+      ]
     }
   ],
   "connections": {
     "جدولة جمع الأخبار - 8 صباحاً": {
       "main": [
         [
-          { "node": "Google News - Vergi", "type": "main", "index": 0 },
-          { "node": "Google News - SGK", "type": "main", "index": 0 },
-          { "node": "Google News - e-Fatura & Kurumlar", "type": "main", "index": 0 },
-          { "node": "Google News - Maliye", "type": "main", "index": 0 },
-          { "node": "Dünya Gazetesi", "type": "main", "index": 0 },
-          { "node": "Bloomberg HT", "type": "main", "index": 0 }
+          {
+            "node": "Google News - Vergi",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google News - SGK",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google News - e-Fatura & Kurumlar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google News - Maliye",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Dünya Gazetesi",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Bloomberg HT",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Google News - Vergi": {
       "main": [
-        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجميع كل المصادر",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Google News - SGK": {
       "main": [
-        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجميع كل المصادر",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Google News - e-Fatura & Kurumlar": {
       "main": [
-        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجميع كل المصادر",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Google News - Maliye": {
       "main": [
-        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجميع كل المصادر",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Dünya Gazetesi": {
       "main": [
-        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجميع كل المصادر",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Bloomberg HT": {
       "main": [
-        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجميع كل المصادر",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "تجميع كل المصادر": {
       "main": [
-        [{ "node": "تنظيف وتصفية الأخبار", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تنظيف وتصفية الأخبار",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "تنظيف وتصفية الأخبار": {
       "main": [
-        [{ "node": "AI تحليل الأهمية والتلخيص", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "AI تحليل الأهمية والتلخيص",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "AI تحليل الأهمية والتلخيص": {
       "main": [
-        [{ "node": "تجهيز البيانات للشيت", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجهيز البيانات للشيت",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "تجهيز البيانات للشيت": {
       "main": [
-        [{ "node": "كتابة الأخبار في Google Sheets", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "كتابة الأخبار في Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "كتابة الأخبار في Google Sheets": {
       "main": [
-        [{ "node": "تم الجمع", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تم الجمع",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -257,7 +386,16 @@
     "callerPolicy": "workflowsFromSameOwner"
   },
   "tags": [
-    { "name": "تسويق", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" },
-    { "name": "AI Content", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" }
-  ]
+    {
+      "name": "تسويق",
+      "createdAt": "2026-03-14T00:00:00.000Z",
+      "updatedAt": "2026-03-14T00:00:00.000Z"
+    },
+    {
+      "name": "AI Content",
+      "createdAt": "2026-03-14T00:00:00.000Z",
+      "updatedAt": "2026-03-14T00:00:00.000Z"
+    }
+  ],
+  "id": "4y1RjDJtPgrHoIXc"
 }

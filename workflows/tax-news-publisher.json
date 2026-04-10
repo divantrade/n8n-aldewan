@@ -16,7 +16,10 @@
       "name": "جدولة النشر - 11 صباحاً",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1400, 300]
+      "position": [
+        -1400,
+        300
+      ]
     },
     {
       "parameters": {
@@ -38,7 +41,10 @@
       "name": "قراءة الأخبار المعتمدة",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [-1100, 300],
+      "position": [
+        -1100,
+        300
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "tMsf6bYwBxxWxxVC",
@@ -83,7 +89,10 @@
       "name": "تصفية المعتمد فقط",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
-      "position": [-850, 300]
+      "position": [
+        -850,
+        300
+      ]
     },
     {
       "parameters": {
@@ -102,7 +111,10 @@
       "name": "AI توليد محتوى لكل منصة",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-600, 300],
+      "position": [
+        -600,
+        300
+      ],
       "credentials": {
         "openAiApi": {
           "id": "UgxxU7JRYK5Qpel4",
@@ -118,7 +130,10 @@
       "name": "تجهيز المحتوى",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-350, 300]
+      "position": [
+        -350,
+        300
+      ]
     },
     {
       "parameters": {
@@ -135,7 +150,10 @@
       "name": "Gemini توليد الصورة",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-100, 300]
+      "position": [
+        -100,
+        300
+      ]
     },
     {
       "parameters": {
@@ -145,7 +163,10 @@
       "name": "استخراج الصورة",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [150, 300]
+      "position": [
+        150,
+        300
+      ]
     },
     {
       "parameters": {
@@ -162,7 +183,10 @@
       "name": "Gemini التحقق من الصورة",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [400, 300]
+      "position": [
+        400,
+        300
+      ]
     },
     {
       "parameters": {
@@ -172,7 +196,10 @@
       "name": "فحص نتيجة التحقق",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [650, 300]
+      "position": [
+        650,
+        300
+      ]
     },
     {
       "parameters": {
@@ -211,7 +238,10 @@
       "name": "الصورة مقبولة؟",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [900, 300]
+      "position": [
+        900,
+        300
+      ]
     },
     {
       "parameters": {
@@ -222,20 +252,31 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "X-Restli-Protocol-Version", "value": "2.0.0" },
-            { "name": "LinkedIn-Version", "value": "202402" }
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            },
+            {
+              "name": "LinkedIn-Version",
+              "value": "202402"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"author\": \"urn:li:organization:{{ $env.LINKEDIN_ORG_ID }}\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": {{ JSON.stringify($json.linkedinContent) }}\n      },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}",
-        "options": { "timeout": 30000 }
+        "options": {
+          "timeout": 30000
+        }
       },
       "id": "publish-linkedin",
       "name": "نشر على LinkedIn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 100],
+      "position": [
+        1200,
+        100
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "",
@@ -250,13 +291,18 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"message\": {{ JSON.stringify($json.facebookContent) }},\n  \"url\": \"data:{{ $json.imageMimeType }};base64,{{ $json.imageBase64 }}\",\n  \"access_token\": \"{{ $env.FACEBOOK_PAGE_TOKEN }}\"\n}",
-        "options": { "timeout": 30000 }
+        "options": {
+          "timeout": 30000
+        }
       },
       "id": "publish-facebook",
       "name": "نشر على Facebook",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 300]
+      "position": [
+        1200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -265,13 +311,18 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"caption\": {{ JSON.stringify($json.instagramContent) }},\n  \"image_url\": \"data:{{ $json.imageMimeType }};base64,{{ $json.imageBase64 }}\",\n  \"access_token\": \"{{ $env.FACEBOOK_PAGE_TOKEN }}\"\n}",
-        "options": { "timeout": 30000 }
+        "options": {
+          "timeout": 30000
+        }
       },
       "id": "publish-instagram",
       "name": "نشر على Instagram",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 500]
+      "position": [
+        1200,
+        500
+      ]
     },
     {
       "parameters": {
@@ -281,7 +332,10 @@
       "name": "تجميع نتائج النشر",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1500, 300]
+      "position": [
+        1500,
+        300
+      ]
     },
     {
       "parameters": {
@@ -313,7 +367,10 @@
       "name": "تحديث الحالة في Google Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [1750, 300],
+      "position": [
+        1750,
+        300
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "tMsf6bYwBxxWxxVC",
@@ -329,7 +386,10 @@
       "name": "الصورة مرفوضة",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, 700]
+      "position": [
+        1200,
+        700
+      ]
     },
     {
       "parameters": {
@@ -358,7 +418,10 @@
       "name": "تحديث حالة الرفض",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [1500, 700],
+      "position": [
+        1500,
+        700
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "tMsf6bYwBxxWxxVC",
@@ -370,84 +433,184 @@
   "connections": {
     "جدولة النشر - 11 صباحاً": {
       "main": [
-        [{ "node": "قراءة الأخبار المعتمدة", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "قراءة الأخبار المعتمدة",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "قراءة الأخبار المعتمدة": {
       "main": [
-        [{ "node": "تصفية المعتمد فقط", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تصفية المعتمد فقط",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "تصفية المعتمد فقط": {
       "main": [
-        [{ "node": "AI توليد محتوى لكل منصة", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "AI توليد محتوى لكل منصة",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "AI توليد محتوى لكل منصة": {
       "main": [
-        [{ "node": "تجهيز المحتوى", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجهيز المحتوى",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "تجهيز المحتوى": {
       "main": [
-        [{ "node": "Gemini توليد الصورة", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Gemini توليد الصورة",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Gemini توليد الصورة": {
       "main": [
-        [{ "node": "استخراج الصورة", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "استخراج الصورة",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "استخراج الصورة": {
       "main": [
-        [{ "node": "Gemini التحقق من الصورة", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Gemini التحقق من الصورة",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Gemini التحقق من الصورة": {
       "main": [
-        [{ "node": "فحص نتيجة التحقق", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "فحص نتيجة التحقق",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "فحص نتيجة التحقق": {
       "main": [
-        [{ "node": "الصورة مقبولة؟", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "الصورة مقبولة؟",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "الصورة مقبولة؟": {
       "main": [
         [
-          { "node": "نشر على LinkedIn", "type": "main", "index": 0 },
-          { "node": "نشر على Facebook", "type": "main", "index": 0 },
-          { "node": "نشر على Instagram", "type": "main", "index": 0 }
+          {
+            "node": "نشر على LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "نشر على Facebook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "نشر على Instagram",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "الصورة مرفوضة", "type": "main", "index": 0 }
+          {
+            "node": "الصورة مرفوضة",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "نشر على LinkedIn": {
       "main": [
-        [{ "node": "تجميع نتائج النشر", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجميع نتائج النشر",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "نشر على Facebook": {
       "main": [
-        [{ "node": "تجميع نتائج النشر", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجميع نتائج النشر",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "نشر على Instagram": {
       "main": [
-        [{ "node": "تجميع نتائج النشر", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تجميع نتائج النشر",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "تجميع نتائج النشر": {
       "main": [
-        [{ "node": "تحديث الحالة في Google Sheets", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تحديث الحالة في Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "الصورة مرفوضة": {
       "main": [
-        [{ "node": "تحديث حالة الرفض", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "تحديث حالة الرفض",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -458,8 +621,21 @@
     "callerPolicy": "workflowsFromSameOwner"
   },
   "tags": [
-    { "name": "تسويق", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" },
-    { "name": "AI Content", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" },
-    { "name": "LinkedIn", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" }
-  ]
+    {
+      "name": "تسويق",
+      "createdAt": "2026-03-14T00:00:00.000Z",
+      "updatedAt": "2026-03-14T00:00:00.000Z"
+    },
+    {
+      "name": "AI Content",
+      "createdAt": "2026-03-14T00:00:00.000Z",
+      "updatedAt": "2026-03-14T00:00:00.000Z"
+    },
+    {
+      "name": "LinkedIn",
+      "createdAt": "2026-03-14T00:00:00.000Z",
+      "updatedAt": "2026-03-14T00:00:00.000Z"
+    }
+  ],
+  "id": "FPqTliwZfIn9oQJ0"
 }
