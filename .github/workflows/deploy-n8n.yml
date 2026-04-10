@@ -21,6 +21,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     name: Deploy workflows to n8n
@@ -31,6 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install jq
         run: |
@@ -151,6 +155,7 @@ jobs:
           ERRORS=0
           SUCCESS=0
           SKIPPED=0
+          NEEDS_ID_COMMIT=false
 
           # Load tag map from file (written by previous step)
           if [ -f /tmp/tag_map.json ]; then
@@ -188,43 +193,81 @@ jobs:
             fi
 
             if [ -z "$WORKFLOW_ID" ]; then
-              # NEW workflow - create via POST
+              # No ID in file - search n8n for existing workflow with same name
               echo "---"
-              echo "Creating NEW workflow: $WORKFLOW_NAME"
+              echo "No ID for: $WORKFLOW_NAME - searching n8n for existing workflow..."
 
-              HTTP_CODE=$(curl -s -k -o /tmp/response.json -w "%{http_code}" \
-                -X POST \
+              EXISTING_WORKFLOWS=$(curl -s -k \
                 -H "X-N8N-API-KEY: $N8N_API_KEY" \
-                -H "Content-Type: application/json" \
-                -d @/tmp/payload.json \
-                "$N8N_URL/api/v1/workflows" \
-                --max-time 30 \
-                --retry 2 \
-                --retry-delay 3)
+                "$N8N_URL/api/v1/workflows?limit=100" --max-time 15)
 
-              if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
-                # Extract the new ID from response and update the local file
-                NEW_ID=$(jq -r '.id // empty' /tmp/response.json)
-                if [ -n "$NEW_ID" ]; then
-                  jq --arg id "$NEW_ID" '.id = $id' "$filepath" > /tmp/updated_workflow.json \
-                    && mv /tmp/updated_workflow.json "$filepath"
-                  WORKFLOW_ID="$NEW_ID"
-                  echo "  ✅ Created successfully: $WORKFLOW_NAME (new ID: $NEW_ID)"
+              FOUND_ID=$(echo "$EXISTING_WORKFLOWS" | jq -r \
+                --arg name "$WORKFLOW_NAME" \
+                '.data[]? | select(.name == $name) | .id // empty' | head -1)
 
-                  # Commit the updated ID back to the repo
-                  git config user.name "github-actions[bot]"
-                  git config user.email "github-actions[bot]@users.noreply.github.com"
-                  git add "$filepath"
-                  git commit -m "chore: add n8n workflow ID to $filename" || true
-                  git push || true
+              if [ -n "$FOUND_ID" ]; then
+                echo "  Found existing workflow on n8n: $WORKFLOW_NAME (ID: $FOUND_ID)"
+                WORKFLOW_ID="$FOUND_ID"
+
+                # Update local file with the found ID
+                jq --arg id "$FOUND_ID" '.id = $id' "$filepath" > /tmp/updated_workflow.json \
+                  && mv /tmp/updated_workflow.json "$filepath"
+                NEEDS_ID_COMMIT=true
+
+                # Update via PUT (same as existing workflow path below)
+                jq '{name, nodes, connections, settings, staticData}' "$filepath" > /tmp/payload.json
+
+                HTTP_CODE=$(curl -s -k -o /tmp/response.json -w "%{http_code}" \
+                  -X PUT \
+                  -H "X-N8N-API-KEY: $N8N_API_KEY" \
+                  -H "Content-Type: application/json" \
+                  -d @/tmp/payload.json \
+                  "$N8N_URL/api/v1/workflows/$WORKFLOW_ID" \
+                  --max-time 30 \
+                  --retry 2 \
+                  --retry-delay 3)
+
+                if [ "$HTTP_CODE" = "200" ]; then
+                  echo "  ✅ Updated existing workflow: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
+                  SUCCESS=$((SUCCESS + 1))
+                else
+                  BODY=$(cat /tmp/response.json 2>/dev/null || echo "No response body")
+                  MSG=$(echo "$BODY" | jq -r '.message // .' 2>/dev/null || echo "$BODY")
+                  echo "::error::Failed to update $WORKFLOW_NAME (ID: $WORKFLOW_ID) - HTTP $HTTP_CODE: $MSG"
+                  ERRORS=$((ERRORS + 1))
+                  continue
                 fi
-                SUCCESS=$((SUCCESS + 1))
               else
-                BODY=$(cat /tmp/response.json 2>/dev/null || echo "No response body")
-                MSG=$(echo "$BODY" | jq -r '.message // .' 2>/dev/null || echo "$BODY")
-                echo "::error::Failed to create $WORKFLOW_NAME - HTTP $HTTP_CODE: $MSG"
-                ERRORS=$((ERRORS + 1))
-                continue
+                # Truly new workflow - create via POST
+                echo "  Workflow not found on n8n - creating NEW: $WORKFLOW_NAME"
+
+                HTTP_CODE=$(curl -s -k -o /tmp/response.json -w "%{http_code}" \
+                  -X POST \
+                  -H "X-N8N-API-KEY: $N8N_API_KEY" \
+                  -H "Content-Type: application/json" \
+                  -d @/tmp/payload.json \
+                  "$N8N_URL/api/v1/workflows" \
+                  --max-time 30 \
+                  --retry 2 \
+                  --retry-delay 3)
+
+                if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+                  NEW_ID=$(jq -r '.id // empty' /tmp/response.json)
+                  if [ -n "$NEW_ID" ]; then
+                    jq --arg id "$NEW_ID" '.id = $id' "$filepath" > /tmp/updated_workflow.json \
+                      && mv /tmp/updated_workflow.json "$filepath"
+                    WORKFLOW_ID="$NEW_ID"
+                    NEEDS_ID_COMMIT=true
+                    echo "  ✅ Created successfully: $WORKFLOW_NAME (new ID: $NEW_ID)"
+                  fi
+                  SUCCESS=$((SUCCESS + 1))
+                else
+                  BODY=$(cat /tmp/response.json 2>/dev/null || echo "No response body")
+                  MSG=$(echo "$BODY" | jq -r '.message // .' 2>/dev/null || echo "$BODY")
+                  echo "::error::Failed to create $WORKFLOW_NAME - HTTP $HTTP_CODE: $MSG"
+                  ERRORS=$((ERRORS + 1))
+                  continue
+                fi
               fi
             else
               # EXISTING workflow - update via PUT
@@ -285,6 +328,17 @@ jobs:
           echo "  Failed:  $ERRORS"
           echo "  Skipped: $SKIPPED"
           echo "=============================="
+
+          # Commit all ID updates back to repo in a single commit
+          if [ "$NEEDS_ID_COMMIT" = "true" ]; then
+            echo ""
+            echo "Committing workflow ID updates back to repo..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add workflows/*.json
+            git commit -m "chore: sync n8n workflow IDs from deployment" || echo "No ID changes to commit"
+            git push || echo "::warning::Failed to push ID updates back to repo"
+          fi
 
           if [ "$ERRORS" -gt 0 ]; then
             exit 1
