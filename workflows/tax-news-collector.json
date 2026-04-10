@@ -3,9 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "rule": {
-          "interval": [{ "triggerAtHour": 8, "triggerAtMinute": 0 }]
-        }
+        "rule": { "interval": [{ "triggerAtHour": 8, "triggerAtMinute": 0 }] }
       },
       "id": "trigger-schedule-news",
       "name": "جدولة جمع الأخبار - 8 صباحاً",
@@ -14,224 +12,128 @@
       "position": [-1400, 300]
     },
     {
-      "parameters": {
-        "url": "https://news.google.com/rss/search?q=site:gib.gov.tr+OR+site:resmigazete.gov.tr+OR+%22vergi+tebli%C4%9Fi%22+OR+%22vergi+sirk%C3%BCleri%22&hl=tr&gl=TR&ceid=TR:tr",
-        "options": {}
-      },
-      "id": "rss-official-announcements",
-      "name": "رسمي - تبليغات وتعميمات",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.1,
-      "position": [-1100, -100]
+      "parameters": { "url": "https://news.google.com/rss/search?q=%22vergi+tebli%C4%9Fi%22+OR+%22vergi+sirk%C3%BCleri%22+OR+%22vergi+usul+kanunu%22&hl=tr&gl=TR&ceid=TR:tr", "options": {} },
+      "id": "rss-tax-teblig", "name": "تبليغات ضريبية رسمية",
+      "type": "n8n-nodes-base.rssFeedRead", "typeVersion": 1.1, "position": [-1100, 0]
+    },
+    {
+      "parameters": { "url": "https://news.google.com/rss/search?q=%22KDV+oran%C4%B1%22+OR+%22KDV+de%C4%9Fi%C5%9Fiklik%22+OR+%22KDV+tevkifat%22+OR+%22KDV+iade%22&hl=tr&gl=TR&ceid=TR:tr", "options": {} },
+      "id": "rss-kdv", "name": "KDV تغييرات ونسب",
+      "type": "n8n-nodes-base.rssFeedRead", "typeVersion": 1.1, "position": [-1100, 200]
+    },
+    {
+      "parameters": { "url": "https://news.google.com/rss/search?q=%22kurumlar+vergisi%22+OR+%22gelir+vergisi%22+OR+%22muhtasar+beyanname%22+OR+%22stopaj%22&hl=tr&gl=TR&ceid=TR:tr", "options": {} },
+      "id": "rss-kurumlar", "name": "ضرائب شركات ودخل",
+      "type": "n8n-nodes-base.rssFeedRead", "typeVersion": 1.1, "position": [-1100, 400]
+    },
+    {
+      "parameters": { "url": "https://news.google.com/rss/search?q=%22e-fatura%22+OR+%22e-defter%22+OR+%22e-ar%C5%9Fiv%22+OR+%22e-beyanname%22&hl=tr&gl=TR&ceid=TR:tr", "options": {} },
+      "id": "rss-efatura", "name": "فوترة وأنظمة إلكترونية",
+      "type": "n8n-nodes-base.rssFeedRead", "typeVersion": 1.1, "position": [-1100, 600]
+    },
+    {
+      "parameters": { "url": "https://news.google.com/rss/search?q=%22SGK+prim%22+OR+%22SGK+i%C5%9Fveren%22+OR+%22SGK+te%C5%9Fvik%22+OR+%22asgari+%C3%BCcret+vergi%22&hl=tr&gl=TR&ceid=TR:tr", "options": {} },
+      "id": "rss-sgk-employer", "name": "SGK أقساط أصحاب العمل",
+      "type": "n8n-nodes-base.rssFeedRead", "typeVersion": 1.1, "position": [-1100, 800]
+    },
+    {
+      "parameters": { "url": "https://news.google.com/rss/search?q=%22Resmi+Gazete%22+%22vergi%22+OR+%22beyanname%22+OR+%22m%C3%BCkellef%22&hl=tr&gl=TR&ceid=TR:tr", "options": {} },
+      "id": "rss-resmi-gazete", "name": "الجريدة الرسمية - ضرائب",
+      "type": "n8n-nodes-base.rssFeedRead", "typeVersion": 1.1, "position": [-1100, 1000]
+    },
+    {
+      "parameters": { "mode": "append", "options": {} },
+      "id": "merge-all-feeds", "name": "تجميع كل المصادر",
+      "type": "n8n-nodes-base.merge", "typeVersion": 3.2, "position": [-700, 400]
     },
     {
       "parameters": {
-        "url": "https://news.google.com/rss/search?q=%22Resmi+Gazete%22+vergi+OR+KDV+OR+SGK&hl=tr&gl=TR&ceid=TR:tr",
-        "options": {}
+        "jsCode": "const items = $input.all();\nconst seen = new Set();\nconst now = new Date();\nconst sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst filtered = [];\n\n// كلمات يجب استبعادها (أخبار غير ضريبية)\nconst excludeKeywords = ['altın fiyat', 'dolar kur', 'borsa', 'hisse', 'bitcoin', 'kripto', 'petrol', 'doğalgaz', 'jet yakıt', 'emtia', 'ilaç geri ödeme', 'ilaç liste', 'sağlık hizmet', 'cenaze öden', 'tedavi ücret', 'hastane', 'eczane'];\n\nfor (const item of items) {\n  const d = item.json;\n  const title = d.title || d.headline || '';\n  const link = d.link || d.url || d.guid || '';\n  const pubDate = d.pubDate || d.isoDate || d.date || d.published || '';\n  const description = d.contentSnippet || d.content || d.description || d.summary || '';\n  \n  if (!title) continue;\n  \n  // استبعاد الأخبار غير الضريبية\n  const titleLower = title.toLowerCase();\n  const descLower = description.toLowerCase();\n  const combined = titleLower + ' ' + descLower;\n  if (excludeKeywords.some(kw => combined.includes(kw))) continue;\n  \n  let source = d.creator || d.author || d['dc:creator'] || '';\n  if (!source && title.includes(' - ')) {\n    source = title.split(' - ').pop().trim();\n  }\n  if (!source && link) {\n    try { source = new URL(link).hostname.replace('www.', ''); } catch(e) { source = 'غير معروف'; }\n  }\n  if (!source) source = 'غير معروف';\n  \n  const isOfficial = title.includes('Resmi Gazete') || title.includes('tebliğ') || title.includes('teblig') || title.includes('sirküler') || title.includes('GİB') || title.includes('Gelir İdaresi') || title.includes('Maliye');\n  \n  const normalizedTitle = title.toLowerCase().trim().replace(/\\s+/g, ' ');\n  if (seen.has(normalizedTitle)) continue;\n  seen.add(normalizedTitle);\n  \n  if (pubDate) {\n    const articleDate = new Date(pubDate);\n    if (!isNaN(articleDate.getTime()) && articleDate < sevenDaysAgo) continue;\n  }\n  \n  filtered.push({\n    json: {\n      title, description: description.substring(0, 500), link, source,\n      sourceType: isOfficial ? 'رسمي' : 'إخباري',\n      pubDate, collectedAt: now.toISOString()\n    }\n  });\n}\n\nfiltered.sort((a, b) => {\n  if (a.json.sourceType === 'رسمي' && b.json.sourceType !== 'رسمي') return -1;\n  if (a.json.sourceType !== 'رسمي' && b.json.sourceType === 'رسمي') return 1;\n  return new Date(b.json.pubDate || 0) - new Date(a.json.pubDate || 0);\n});\n\nconst result = filtered.slice(0, 5);\nif (result.length === 0) return [];\nreturn result;"
       },
-      "id": "rss-resmi-gazete",
-      "name": "رسمي - الجريدة الرسمية",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.1,
-      "position": [-1100, 100]
-    },
-    {
-      "parameters": {
-        "url": "https://news.google.com/rss/search?q=%22Gelir+%C4%B0daresi%22+OR+%22G%C4%B0B%22+OR+%22Maliye+Bakanl%C4%B1%C4%9F%C4%B1%22+tebli%C4%9F+OR+duyuru&hl=tr&gl=TR&ceid=TR:tr",
-        "options": {}
-      },
-      "id": "rss-gib-maliye",
-      "name": "رسمي - هيئة الضرائب GİB",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.1,
-      "position": [-1100, 300]
-    },
-    {
-      "parameters": {
-        "url": "https://news.google.com/rss/search?q=vergi+OR+KDV+OR+vergi+tebli%C4%9Fi&hl=tr&gl=TR&ceid=TR:tr",
-        "options": {}
-      },
-      "id": "rss-google-news-vergi",
-      "name": "أخبار - Vergi عام",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.1,
-      "position": [-1100, 500]
-    },
-    {
-      "parameters": {
-        "url": "https://news.google.com/rss/search?q=SGK+primi+OR+sosyal+g%C3%BCvenlik+duyuru&hl=tr&gl=TR&ceid=TR:tr",
-        "options": {}
-      },
-      "id": "rss-google-news-sgk",
-      "name": "أخبار - SGK",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.1,
-      "position": [-1100, 700]
-    },
-    {
-      "parameters": {
-        "url": "https://news.google.com/rss/search?q=e-fatura+OR+e-defter+OR+kurumlar+vergisi&hl=tr&gl=TR&ceid=TR:tr",
-        "options": {}
-      },
-      "id": "rss-google-news-efatura",
-      "name": "أخبار - e-Fatura & Kurumlar",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.1,
-      "position": [-1100, 900]
-    },
-    {
-      "parameters": {
-        "url": "https://www.bloomberght.com/rss",
-        "options": {}
-      },
-      "id": "rss-bloomberg",
-      "name": "Bloomberg HT",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.1,
-      "position": [-1100, 1100]
-    },
-    {
-      "parameters": {
-        "mode": "append",
-        "options": {}
-      },
-      "id": "merge-all-feeds",
-      "name": "تجميع كل المصادر",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [-700, 400]
-    },
-    {
-      "parameters": {
-        "jsCode": "const items = $input.all();\nconst seen = new Set();\nconst now = new Date();\nconst sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst filtered = [];\n\nfor (const item of items) {\n  const d = item.json;\n  const title = d.title || d.headline || '';\n  const link = d.link || d.url || d.guid || '';\n  const pubDate = d.pubDate || d.isoDate || d.date || d.published || '';\n  const description = d.contentSnippet || d.content || d.description || d.summary || '';\n  \n  let source = d.creator || d.author || d['dc:creator'] || '';\n  if (!source && title.includes(' - ')) {\n    source = title.split(' - ').pop().trim();\n  }\n  if (!source && link) {\n    try { source = new URL(link).hostname.replace('www.', ''); } catch(e) { source = 'غير معروف'; }\n  }\n  if (!source) source = 'غير معروف';\n  \n  const isOfficial = link.includes('gib.gov.tr') || link.includes('resmigazete.gov.tr') || link.includes('sgk.gov.tr') || link.includes('hmb.gov.tr') || title.includes('Resmi Gazete') || title.includes('tebliğ') || title.includes('teblig') || title.includes('sirküler') || title.includes('GİB') || title.includes('Gelir İdaresi');\n  \n  if (!title) continue;\n  const normalizedTitle = title.toLowerCase().trim().replace(/\\s+/g, ' ');\n  if (seen.has(normalizedTitle)) continue;\n  seen.add(normalizedTitle);\n  \n  if (pubDate) {\n    const articleDate = new Date(pubDate);\n    if (!isNaN(articleDate.getTime()) && articleDate < sevenDaysAgo) continue;\n  }\n  \n  filtered.push({\n    json: {\n      title, description: description.substring(0, 500), link, source,\n      sourceType: isOfficial ? 'رسمي' : 'إخباري',\n      pubDate, collectedAt: now.toISOString()\n    }\n  });\n}\n\nfiltered.sort((a, b) => {\n  if (a.json.sourceType === 'رسمي' && b.json.sourceType !== 'رسمي') return -1;\n  if (a.json.sourceType !== 'رسمي' && b.json.sourceType === 'رسمي') return 1;\n  return new Date(b.json.pubDate || 0) - new Date(a.json.pubDate || 0);\n});\n\nconst result = filtered.slice(0, 5);\nif (result.length === 0) {\n  return [];\n}\nreturn result;"
-      },
-      "id": "code-dedup-filter",
-      "name": "تنظيف وتصفية الأخبار",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [-450, 400],
-      "alwaysOutputData": true
+      "id": "code-dedup-filter", "name": "تنظيف وتصفية الأخبار",
+      "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [-450, 400], "alwaysOutputData": true
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $json.link || 'https://www.gib.gov.tr' }}",
+        "url": "=https://r.jina.ai/{{ $json.link }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Accept", "value": "text/plain" },
+          { "name": "X-Return-Format", "value": "text" }
+        ]},
         "options": {
-          "redirect": { "redirect": { "followRedirects": true, "maxRedirects": 5 } },
           "response": { "response": { "neverError": true, "responseFormat": "text" } },
-          "timeout": 15000,
-          "batching": {
-            "batch": { "batchSize": 1, "batchInterval": 2000 }
-          }
+          "timeout": 20000,
+          "batching": { "batch": { "batchSize": 1, "batchInterval": 3000 } }
         }
       },
-      "id": "http-fetch-article",
-      "name": "قراءة المقال الكامل",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "http-fetch-article", "name": "قراءة المقال الكامل",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
       "position": [-200, 400]
     },
     {
       "parameters": {
-        "jsCode": "// استخراج النص من HTML وتحضير طلب Gemini\nconst items = $input.all();\nconst originalItems = $('تنظيف وتصفية الأخبار').all();\n\nreturn items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  let html = item.json.data || item.json.body || '';\n  if (typeof html !== 'string') html = JSON.stringify(html);\n  \n  // تنظيف HTML → نص عادي\n  let articleText = html\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<nav[^>]*>[\\s\\S]*?<\\/nav>/gi, '')\n    .replace(/<header[^>]*>[\\s\\S]*?<\\/header>/gi, '')\n    .replace(/<footer[^>]*>[\\s\\S]*?<\\/footer>/gi, '')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/\\s+/g, ' ')\n    .trim();\n  \n  // أخذ أول 3000 حرف فقط (كافي للتحليل)\n  articleText = articleText.substring(0, 3000);\n  \n  const title = original.title || '';\n  const source = original.source || '';\n  const sourceType = original.sourceType || '';\n  \n  const prompt = 'أنت محلل أخبار ضريبية تركية خبير ومتخصص. لديك خبر ضريبي ونص المقال الكامل. مطلوب منك:\\n\\n1. قراءة المقال بعناية واستخراج التفاصيل الدقيقة\\n2. تحديد الأرقام والنسب والمواد القانونية المذكورة\\n3. شرح التأثير العملي على الشركات في تركيا\\n\\nالعنوان: ' + title + '\\nالمصدر: ' + source + ' (' + sourceType + ')\\n\\nنص المقال الكامل:\\n' + articleText + '\\n\\nأجب بـ JSON فقط بهذا الشكل:\\n{\\n  \"isRelevant\": true/false,\\n  \"importance\": \"عالي/متوسط/منخفض\",\\n  \"summaryAr\": \"ملخص تفصيلي بالعربي (3-5 جمل) يتضمن الأرقام والنسب والتفاصيل المحددة من المقال\",\\n  \"summaryTr\": \"ملخص تفصيلي بالتركي (3-5 جمل)\",\\n  \"category\": \"KDV/SGK/Kurumlar/e-Fatura/Muhtasar/Genel\",\\n  \"suggestedTitle\": \"عنوان عربي جذاب ودقيق للنشر على السوشال ميديا\",\\n  \"keyDetails\": \"أهم 3-5 نقاط محددة من الخبر (أرقام، نسب، مواعيد، مواد قانونية)\",\\n  \"impactOnCompanies\": \"كيف يؤثر هذا على الشركات عملياً؟ ماذا يجب أن تفعل؟\",\\n  \"legalReferences\": \"المواد القانونية والتبليغات المذكورة إن وجدت\"\\n}';\n  \n  const body = {\n    contents: [{ parts: [{ text: prompt }] }],\n    generationConfig: { temperature: 0.2 }\n  };\n  \n  return {\n    json: {\n      ...original,\n      articleText: articleText.substring(0, 500),\n      geminiBody: body\n    }\n  };\n});"
+        "jsCode": "const items = $input.all();\nconst originalItems = $('تنظيف وتصفية الأخبار').all();\n\nreturn items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  let articleText = item.json.data || item.json.body || '';\n  if (typeof articleText !== 'string') articleText = JSON.stringify(articleText);\n  articleText = articleText.substring(0, 4000);\n  \n  const title = original.title || '';\n  const source = original.source || '';\n  const sourceType = original.sourceType || '';\n  \n  const prompt = 'أنت محلل أخبار ضريبية تركية خبير. تعمل لشركة Aldewan المتخصصة في الامتثال الضريبي للشركات في تركيا.\\n\\nمهمتك: تحليل هذا الخبر الضريبي واستخراج التفاصيل الدقيقة من نص المقال.\\n\\nتحذير مهم: إذا كان الخبر عن أسعار سلع أو ذهب أو بورصة أو تأمين صحي للمواطنين أو أدوية أو وفيات - ضع isRelevant: false.\\nفقط أبقِ أخبار: تبليغات ضريبية، نسب KDV، ضريبة شركات، e-fatura، beyanname، muhtasar، SGK أقساط أصحاب العمل.\\n\\nالعنوان: ' + title + '\\nالمصدر: ' + source + ' (' + sourceType + ')\\n\\nنص المقال:\\n' + articleText + '\\n\\nأجب بـ JSON فقط:\\n{\\n  \"isRelevant\": true/false,\\n  \"importance\": \"عالي/متوسط/منخفض\",\\n  \"summaryAr\": \"ملخص تفصيلي بالعربي (5-7 جمل) مع الأرقام والنسب والتفاصيل المحددة\",\\n  \"summaryTr\": \"Detaylı Türkçe özet (5-7 cümle)\",\\n  \"category\": \"KDV/SGK/Kurumlar/e-Fatura/Muhtasar/Stopaj/Beyanname/Genel\",\\n  \"suggestedTitle\": \"عنوان عربي جذاب ودقيق\",\\n  \"keyDetails\": \"أهم 3-5 نقاط: أرقام ونسب ومواعيد ومواد قانونية\",\\n  \"impactOnCompanies\": \"ماذا يجب أن تفعل الشركات عملياً؟\",\\n  \"legalReferences\": \"المواد القانونية المذكورة\"\\n}';\n  \n  const body = {\n    contents: [{ parts: [{ text: prompt }] }],\n    generationConfig: { temperature: 0.2 }\n  };\n  \n  return { json: { ...original, articleText: articleText.substring(0, 300), geminiBody: body } };\n});"
       },
-      "id": "code-extract-and-prepare",
-      "name": "استخراج النص وتحضير Gemini",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [50, 400]
+      "id": "code-extract-and-prepare", "name": "استخراج النص وتحضير Gemini",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [50, 400]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=CHANGE_ME_GEMINI_API_KEY",
-        "sendBody": true,
-        "specifyBody": "json",
+        "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ $json.geminiBody }}",
         "options": {
           "timeout": 60000,
-          "batching": {
-            "batch": { "batchSize": 1, "batchInterval": 10000 }
-          }
+          "batching": { "batch": { "batchSize": 1, "batchInterval": 5000 } }
         }
       },
-      "id": "http-gemini-analyze",
-      "name": "إرسال لـ Gemini",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [300, 400]
+      "id": "http-gemini-analyze", "name": "إرسال لـ Gemini",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [300, 400]
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst originalItems = $('استخراج النص وتحضير Gemini').all();\n\nreturn items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  \n  let analysis = {};\n  try {\n    const content = item.json.candidates?.[0]?.content?.parts?.[0]?.text || '{}';\n    const cleaned = content.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    analysis = JSON.parse(cleaned);\n  } catch (e) {\n    analysis = {\n      isRelevant: true, importance: 'متوسط',\n      summaryAr: original.description || '', summaryTr: '',\n      category: 'Genel', suggestedTitle: original.title || '',\n      keyDetails: '', impactOnCompanies: '', legalReferences: ''\n    };\n  }\n  \n  if (!analysis.isRelevant) return null;\n  \n  return {\n    json: {\n      title: original.title || '',\n      suggestedTitle: analysis.suggestedTitle || '',\n      summaryAr: analysis.summaryAr || '',\n      summaryTr: analysis.summaryTr || '',\n      keyDetails: analysis.keyDetails || '',\n      impactOnCompanies: analysis.impactOnCompanies || '',\n      legalReferences: analysis.legalReferences || '',\n      category: analysis.category || 'Genel',\n      importance: analysis.importance || 'متوسط',\n      source: original.source || '',\n      sourceType: original.sourceType || '',\n      sourceUrl: original.link || '',\n      pubDate: original.pubDate || '',\n      collectedAt: original.collectedAt || new Date().toISOString(),\n      approved: '',\n      status: 'جديد'\n    }\n  };\n}).filter(item => item !== null);"
+        "jsCode": "const items = $input.all();\nconst originalItems = $('استخراج النص وتحضير Gemini').all();\n\nconst results = items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  \n  let analysis = {};\n  try {\n    const content = item.json.candidates?.[0]?.content?.parts?.[0]?.text || '{}';\n    const cleaned = content.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    analysis = JSON.parse(cleaned);\n  } catch (e) {\n    analysis = { isRelevant: true, importance: 'متوسط', summaryAr: original.description || '', summaryTr: '', category: 'Genel', suggestedTitle: original.title || '', keyDetails: '', impactOnCompanies: '', legalReferences: '' };\n  }\n  \n  if (!analysis.isRelevant) return null;\n  \n  return {\n    json: {\n      title: original.title || '',\n      suggestedTitle: analysis.suggestedTitle || '',\n      summaryAr: analysis.summaryAr || '',\n      summaryTr: analysis.summaryTr || '',\n      keyDetails: analysis.keyDetails || '',\n      impactOnCompanies: analysis.impactOnCompanies || '',\n      legalReferences: analysis.legalReferences || '',\n      category: analysis.category || 'Genel',\n      importance: analysis.importance || 'متوسط',\n      source: original.source || '',\n      sourceType: original.sourceType || '',\n      sourceUrl: original.link || '',\n      pubDate: original.pubDate || '',\n      collectedAt: original.collectedAt || new Date().toISOString(),\n      approved: '',\n      status: 'جديد'\n    }\n  };\n}).filter(item => item !== null);\n\nif (results.length === 0) return [];\nreturn results;"
       },
-      "id": "code-prepare-sheets",
-      "name": "تجهيز البيانات للشيت",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [550, 400]
+      "id": "code-prepare-sheets", "name": "تجهيز البيانات للشيت",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [550, 400]
     },
     {
       "parameters": {
         "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "mode": "list",
-          "value": "",
-          "cachedResultName": "كتابة الاخبار"
-        },
-        "sheetName": {
-          "__rl": true,
-          "mode": "list",
-          "value": "gid=0",
-          "cachedResultName": "الاخبار"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {}
-        },
+        "documentId": { "__rl": true, "mode": "list", "value": "", "cachedResultName": "كتابة الاخبار" },
+        "sheetName": { "__rl": true, "mode": "list", "value": "gid=0", "cachedResultName": "الاخبار" },
+        "columns": { "mappingMode": "autoMapInputData", "value": {} },
         "options": {}
       },
-      "id": "sheets-write-news",
-      "name": "كتابة الأخبار في Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [800, 400],
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "tMsf6bYwBxxWxxVC",
-          "name": "Google Sheets account"
-        }
-      }
+      "id": "sheets-write-news", "name": "كتابة الأخبار في Google Sheets",
+      "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.5, "position": [800, 400],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "tMsf6bYwBxxWxxVC", "name": "Google Sheets account" } }
     },
     {
       "parameters": {},
-      "id": "noop-done",
-      "name": "تم الجمع",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [1050, 400]
+      "id": "noop-done", "name": "تم الجمع",
+      "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [1050, 400]
     }
   ],
   "connections": {
-    "جدولة جمع الأخبار - 8 صباحاً": {
-      "main": [[
-        { "node": "رسمي - تبليغات وتعميمات", "type": "main", "index": 0 },
-        { "node": "رسمي - الجريدة الرسمية", "type": "main", "index": 0 },
-        { "node": "رسمي - هيئة الضرائب GİB", "type": "main", "index": 0 },
-        { "node": "أخبار - Vergi عام", "type": "main", "index": 0 },
-        { "node": "أخبار - SGK", "type": "main", "index": 0 },
-        { "node": "أخبار - e-Fatura & Kurumlar", "type": "main", "index": 0 },
-        { "node": "Bloomberg HT", "type": "main", "index": 0 }
-      ]]
-    },
-    "رسمي - تبليغات وتعميمات": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
-    "رسمي - الجريدة الرسمية": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
-    "رسمي - هيئة الضرائب GİB": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
-    "أخبار - Vergi عام": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
-    "أخبار - SGK": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
-    "أخبار - e-Fatura & Kurumlar": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
-    "Bloomberg HT": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
+    "جدولة جمع الأخبار - 8 صباحاً": { "main": [[
+      { "node": "تبليغات ضريبية رسمية", "type": "main", "index": 0 },
+      { "node": "KDV تغييرات ونسب", "type": "main", "index": 0 },
+      { "node": "ضرائب شركات ودخل", "type": "main", "index": 0 },
+      { "node": "فوترة وأنظمة إلكترونية", "type": "main", "index": 0 },
+      { "node": "SGK أقساط أصحاب العمل", "type": "main", "index": 0 },
+      { "node": "الجريدة الرسمية - ضرائب", "type": "main", "index": 0 }
+    ]] },
+    "تبليغات ضريبية رسمية": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
+    "KDV تغييرات ونسب": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
+    "ضرائب شركات ودخل": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
+    "فوترة وأنظمة إلكترونية": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
+    "SGK أقساط أصحاب العمل": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
+    "الجريدة الرسمية - ضرائب": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
     "تجميع كل المصادر": { "main": [[{ "node": "تنظيف وتصفية الأخبار", "type": "main", "index": 0 }]] },
     "تنظيف وتصفية الأخبار": { "main": [[{ "node": "قراءة المقال الكامل", "type": "main", "index": 0 }]] },
     "قراءة المقال الكامل": { "main": [[{ "node": "استخراج النص وتحضير Gemini", "type": "main", "index": 0 }]] },
@@ -241,11 +143,7 @@
     "كتابة الأخبار في Google Sheets": { "main": [[{ "node": "تم الجمع", "type": "main", "index": 0 }]] }
   },
   "active": false,
-  "settings": {
-    "executionOrder": "v1",
-    "saveManualExecutions": true,
-    "callerPolicy": "workflowsFromSameOwner"
-  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "callerPolicy": "workflowsFromSameOwner" },
   "tags": [
     { "name": "تسويق", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" },
     { "name": "AI Content", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" }
