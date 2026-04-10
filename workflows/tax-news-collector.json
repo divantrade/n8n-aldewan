@@ -135,34 +135,23 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=CHANGE_ME_GEMINI_API_KEY",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"temperature\": 0.3,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"أنت محلل أخبار ضريبية متخصص في الضرائب التركية. مهمتك تحليل الأخبار وتقييم أهميتها لشركة Aldewan التي تساعد الشركات في الامتثال الضريبي في تركيا.\\n\\nأجب بـ JSON فقط بالشكل التالي:\\n{\\n  \\\"isRelevant\\\": true/false,\\n  \\\"importance\\\": \\\"عالي\\\" أو \\\"متوسط\\\" أو \\\"منخفض\\\",\\n  \\\"summaryAr\\\": \\\"ملخص بالعربي في 2-3 جمل\\\",\\n  \\\"summaryTr\\\": \\\"ملخص بالتركي في 2-3 جمل\\\",\\n  \\\"category\\\": \\\"KDV\\\" أو \\\"SGK\\\" أو \\\"Kurumlar\\\" أو \\\"e-Fatura\\\" أو \\\"Muhtasar\\\" أو \\\"Genel\\\" أو \\\"Diğer\\\",\\n  \\\"suggestedTitle\\\": \\\"عنوان جذاب بالعربي للنشر\\\"\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('حلل هذا الخبر:\\n\\nالعنوان: ' + $json.title + '\\n\\nالوصف: ' + $json.description + '\\n\\nالمصدر: ' + $json.source) }}\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": {{ JSON.stringify('أنت محلل أخبار ضريبية متخصص في الضرائب التركية. مهمتك تحليل الأخبار وتقييم أهميتها لشركة Aldewan التي تساعد الشركات في الامتثال الضريبي في تركيا.\\n\\nحلل هذا الخبر:\\nالعنوان: ' + $json.title + '\\nالوصف: ' + $json.description + '\\nالمصدر: ' + $json.source + '\\n\\nأجب بـ JSON فقط بالشكل التالي:\\n{\\n  \"isRelevant\": true/false,\\n  \"importance\": \"عالي\" أو \"متوسط\" أو \"منخفض\",\\n  \"summaryAr\": \"ملخص بالعربي في 2-3 جمل\",\\n  \"summaryTr\": \"ملخص بالتركي في 2-3 جمل\",\\n  \"category\": \"KDV\" أو \"SGK\" أو \"Kurumlar\" أو \"e-Fatura\" أو \"Muhtasar\" أو \"Genel\" أو \"Diğer\",\\n  \"suggestedTitle\": \"عنوان جذاب بالعربي للنشر\"\\n}') }}\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.3,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
         "options": {
           "timeout": 30000
         }
       },
       "id": "ai-analyze-news",
-      "name": "AI تحليل الأهمية والتلخيص",
+      "name": "Gemini تحليل الأهمية والتلخيص",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        0,
-        400
-      ],
-      "credentials": {
-        "openAiApi": {
-          "id": "UgxxU7JRYK5Qpel4",
-          "name": "OpenAi account"
-        }
-      }
+      "position": [0, 400]
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Parse AI response and prepare for Google Sheets\n// ============================================\n\nconst items = $input.all();\nconst originalItems = $('تنظيف وتصفية الأخبار').all();\n\nreturn items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  \n  let analysis = {};\n  try {\n    const content = item.json.choices?.[0]?.message?.content || '{}';\n    analysis = JSON.parse(content);\n  } catch (e) {\n    analysis = {\n      isRelevant: false,\n      importance: 'منخفض',\n      summaryAr: '',\n      summaryTr: '',\n      category: 'Diğer',\n      suggestedTitle: ''\n    };\n  }\n  \n  // Only keep relevant news\n  if (!analysis.isRelevant) return null;\n  \n  return {\n    json: {\n      title: original.title || '',\n      suggestedTitle: analysis.suggestedTitle || '',\n      summaryAr: analysis.summaryAr || '',\n      summaryTr: analysis.summaryTr || '',\n      category: analysis.category || 'Genel',\n      importance: analysis.importance || 'متوسط',\n      source: original.source || '',\n      sourceUrl: original.link || '',\n      pubDate: original.pubDate || '',\n      collectedAt: original.collectedAt || new Date().toISOString(),\n      approved: '',\n      linkedinContent: '',\n      facebookContent: '',\n      instagramContent: '',\n      imagePrompt: '',\n      imageUrl: '',\n      status: 'جديد'\n    }\n  };\n}).filter(item => item !== null);"
+        "jsCode": "// ============================================\n// Parse AI response and prepare for Google Sheets\n// ============================================\n\nconst items = $input.all();\nconst originalItems = $('تنظيف وتصفية الأخبار').all();\n\nreturn items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  \n  let analysis = {};\n  try {\n    const content = item.json.candidates?.[0]?.content?.parts?.[0]?.text || item.json.choices?.[0]?.message?.content || '{}';\n    analysis = JSON.parse(content);\n  } catch (e) {\n    analysis = {\n      isRelevant: false,\n      importance: 'منخفض',\n      summaryAr: '',\n      summaryTr: '',\n      category: 'Diğer',\n      suggestedTitle: ''\n    };\n  }\n  \n  // Only keep relevant news\n  if (!analysis.isRelevant) return null;\n  \n  return {\n    json: {\n      title: original.title || '',\n      suggestedTitle: analysis.suggestedTitle || '',\n      summaryAr: analysis.summaryAr || '',\n      summaryTr: analysis.summaryTr || '',\n      category: analysis.category || 'Genel',\n      importance: analysis.importance || 'متوسط',\n      source: original.source || '',\n      sourceUrl: original.link || '',\n      pubDate: original.pubDate || '',\n      collectedAt: original.collectedAt || new Date().toISOString(),\n      approved: '',\n      linkedinContent: '',\n      facebookContent: '',\n      instagramContent: '',\n      imagePrompt: '',\n      imageUrl: '',\n      status: 'جديد'\n    }\n  };\n}).filter(item => item !== null);"
       },
       "id": "code-prepare-sheets",
       "name": "تجهيز البيانات للشيت",
@@ -179,7 +168,7 @@
         "documentId": {
           "__rl": true,
           "mode": "url",
-          "value": "={{ $env.TAX_NEWS_SHEET_URL }}"
+          "value": "CHANGE_ME_GOOGLE_SHEET_URL"
         },
         "sheetName": {
           "__rl": true,
