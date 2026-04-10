@@ -11,7 +11,7 @@
       "name": "جدولة جمع الأخبار - 8 صباحاً",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1200, 300]
+      "position": [-1400, 300]
     },
     {
       "parameters": {
@@ -22,7 +22,7 @@
       "name": "رسمي - تبليغات وتعميمات",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, -100]
+      "position": [-1100, -100]
     },
     {
       "parameters": {
@@ -33,18 +33,18 @@
       "name": "رسمي - الجريدة الرسمية",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 100]
+      "position": [-1100, 100]
     },
     {
       "parameters": {
-        "url": "https://news.google.com/rss/search?q=%22Gelir+%C4%B0daresi%22+OR+%22GİB%22+OR+%22Maliye+Bakanl%C4%B1%C4%9F%C4%B1%22+tebli%C4%9F+OR+duyuru&hl=tr&gl=TR&ceid=TR:tr",
+        "url": "https://news.google.com/rss/search?q=%22Gelir+%C4%B0daresi%22+OR+%22G%C4%B0B%22+OR+%22Maliye+Bakanl%C4%B1%C4%9F%C4%B1%22+tebli%C4%9F+OR+duyuru&hl=tr&gl=TR&ceid=TR:tr",
         "options": {}
       },
       "id": "rss-gib-maliye",
       "name": "رسمي - هيئة الضرائب GİB",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 300]
+      "position": [-1100, 300]
     },
     {
       "parameters": {
@@ -55,7 +55,7 @@
       "name": "أخبار - Vergi عام",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 500]
+      "position": [-1100, 500]
     },
     {
       "parameters": {
@@ -66,7 +66,7 @@
       "name": "أخبار - SGK",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 700]
+      "position": [-1100, 700]
     },
     {
       "parameters": {
@@ -77,7 +77,7 @@
       "name": "أخبار - e-Fatura & Kurumlar",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 900]
+      "position": [-1100, 900]
     },
     {
       "parameters": {
@@ -88,7 +88,7 @@
       "name": "Bloomberg HT",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [-900, 1100]
+      "position": [-1100, 1100]
     },
     {
       "parameters": {
@@ -99,27 +99,46 @@
       "name": "تجميع كل المصادر",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [-500, 400]
+      "position": [-700, 400]
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst seen = new Set();\nconst now = new Date();\nconst sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst filtered = [];\n\nfor (const item of items) {\n  const d = item.json;\n  const title = d.title || d.headline || '';\n  const link = d.link || d.url || d.guid || '';\n  const pubDate = d.pubDate || d.isoDate || d.date || d.published || '';\n  const description = d.contentSnippet || d.content || d.description || d.summary || '';\n  \n  // Extract source from Google News title format: \"Title - Source Name\"\n  let source = d.creator || d.author || d['dc:creator'] || '';\n  if (!source && title.includes(' - ')) {\n    source = title.split(' - ').pop().trim();\n  }\n  if (!source && link) {\n    try {\n      const url = new URL(link);\n      source = url.hostname.replace('www.', '');\n    } catch(e) {\n      source = 'غير معروف';\n    }\n  }\n  if (!source) source = 'غير معروف';\n  \n  // Detect if official source\n  const isOfficial = link.includes('gib.gov.tr') || link.includes('resmigazete.gov.tr') || link.includes('sgk.gov.tr') || link.includes('hmb.gov.tr') || title.includes('Resmi Gazete') || title.includes('tebliğ') || title.includes('teblig') || title.includes('sirküler') || title.includes('GİB') || title.includes('Gelir İdaresi');\n  \n  if (!title) continue;\n  \n  const normalizedTitle = title.toLowerCase().trim().replace(/\\s+/g, ' ');\n  if (seen.has(normalizedTitle)) continue;\n  seen.add(normalizedTitle);\n  \n  if (pubDate) {\n    const articleDate = new Date(pubDate);\n    if (!isNaN(articleDate.getTime()) && articleDate < sevenDaysAgo) continue;\n  }\n  \n  filtered.push({\n    json: {\n      title: title,\n      description: description.substring(0, 500),\n      link: link,\n      source: source,\n      sourceType: isOfficial ? 'رسمي' : 'إخباري',\n      pubDate: pubDate,\n      collectedAt: now.toISOString()\n    }\n  });\n}\n\n// Sort: official sources first, then by date\nfiltered.sort((a, b) => {\n  if (a.json.sourceType === 'رسمي' && b.json.sourceType !== 'رسمي') return -1;\n  if (a.json.sourceType !== 'رسمي' && b.json.sourceType === 'رسمي') return 1;\n  return new Date(b.json.pubDate || 0) - new Date(a.json.pubDate || 0);\n});\n\nconst result = filtered.slice(0, 10);\n\nif (result.length === 0) {\n  return [{ json: { title: 'لا توجد أخبار جديدة', description: '', link: '', source: '', sourceType: '', pubDate: '', collectedAt: now.toISOString(), noNews: true } }];\n}\nreturn result;"
+        "jsCode": "const items = $input.all();\nconst seen = new Set();\nconst now = new Date();\nconst sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst filtered = [];\n\nfor (const item of items) {\n  const d = item.json;\n  const title = d.title || d.headline || '';\n  const link = d.link || d.url || d.guid || '';\n  const pubDate = d.pubDate || d.isoDate || d.date || d.published || '';\n  const description = d.contentSnippet || d.content || d.description || d.summary || '';\n  \n  let source = d.creator || d.author || d['dc:creator'] || '';\n  if (!source && title.includes(' - ')) {\n    source = title.split(' - ').pop().trim();\n  }\n  if (!source && link) {\n    try { source = new URL(link).hostname.replace('www.', ''); } catch(e) { source = 'غير معروف'; }\n  }\n  if (!source) source = 'غير معروف';\n  \n  const isOfficial = link.includes('gib.gov.tr') || link.includes('resmigazete.gov.tr') || link.includes('sgk.gov.tr') || link.includes('hmb.gov.tr') || title.includes('Resmi Gazete') || title.includes('tebliğ') || title.includes('teblig') || title.includes('sirküler') || title.includes('GİB') || title.includes('Gelir İdaresi');\n  \n  if (!title) continue;\n  const normalizedTitle = title.toLowerCase().trim().replace(/\\s+/g, ' ');\n  if (seen.has(normalizedTitle)) continue;\n  seen.add(normalizedTitle);\n  \n  if (pubDate) {\n    const articleDate = new Date(pubDate);\n    if (!isNaN(articleDate.getTime()) && articleDate < sevenDaysAgo) continue;\n  }\n  \n  filtered.push({\n    json: {\n      title, description: description.substring(0, 500), link, source,\n      sourceType: isOfficial ? 'رسمي' : 'إخباري',\n      pubDate, collectedAt: now.toISOString()\n    }\n  });\n}\n\nfiltered.sort((a, b) => {\n  if (a.json.sourceType === 'رسمي' && b.json.sourceType !== 'رسمي') return -1;\n  if (a.json.sourceType !== 'رسمي' && b.json.sourceType === 'رسمي') return 1;\n  return new Date(b.json.pubDate || 0) - new Date(a.json.pubDate || 0);\n});\n\nconst result = filtered.slice(0, 5);\nif (result.length === 0) {\n  return [{ json: { title: 'لا توجد أخبار جديدة', description: '', link: '', source: '', sourceType: '', pubDate: '', collectedAt: now.toISOString(), noNews: true } }];\n}\nreturn result;"
       },
       "id": "code-dedup-filter",
       "name": "تنظيف وتصفية الأخبار",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-250, 400]
+      "position": [-450, 400]
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const title = item.json.title || '';\n  const desc = item.json.description || '';\n  const source = item.json.source || '';\n  const sourceType = item.json.sourceType || '';\n\n  const body = {\n    contents: [{\n      parts: [{\n        text: 'أنت محلل أخبار ضريبية تركية متخصص. حلل هذا الخبر وقيّم أهميته لشركة Aldewan المتخصصة في الامتثال الضريبي. نوع المصدر: ' + sourceType + '. العنوان: ' + title + '. الوصف: ' + desc + '. المصدر: ' + source + '. أجب بـ JSON فقط: {\"isRelevant\": true/false, \"importance\": \"عالي/متوسط/منخفض\", \"summaryAr\": \"ملخص عربي\", \"summaryTr\": \"ملخص تركي\", \"category\": \"KDV/SGK/Kurumlar/e-Fatura/Genel\", \"suggestedTitle\": \"عنوان عربي جذاب\"}'\n      }]\n    }],\n    generationConfig: { temperature: 0.3 }\n  };\n\n  return {\n    json: {\n      ...item.json,\n      geminiBody: body\n    }\n  };\n});"
+        "method": "GET",
+        "url": "={{ $json.link }}",
+        "options": {
+          "redirect": { "redirect": { "followRedirects": true, "maxRedirects": 5 } },
+          "response": { "response": { "neverError": true, "responseFormat": "text" } },
+          "timeout": 15000,
+          "batching": {
+            "batch": { "batchSize": 1, "batchInterval": 2000 }
+          }
+        }
       },
-      "id": "code-prepare-gemini",
-      "name": "تحضير طلب Gemini",
+      "id": "http-fetch-article",
+      "name": "قراءة المقال الكامل",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-200, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// استخراج النص من HTML وتحضير طلب Gemini\nconst items = $input.all();\nconst originalItems = $('تنظيف وتصفية الأخبار').all();\n\nreturn items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  let html = item.json.data || item.json.body || '';\n  if (typeof html !== 'string') html = JSON.stringify(html);\n  \n  // تنظيف HTML → نص عادي\n  let articleText = html\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<nav[^>]*>[\\s\\S]*?<\\/nav>/gi, '')\n    .replace(/<header[^>]*>[\\s\\S]*?<\\/header>/gi, '')\n    .replace(/<footer[^>]*>[\\s\\S]*?<\\/footer>/gi, '')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/\\s+/g, ' ')\n    .trim();\n  \n  // أخذ أول 3000 حرف فقط (كافي للتحليل)\n  articleText = articleText.substring(0, 3000);\n  \n  const title = original.title || '';\n  const source = original.source || '';\n  const sourceType = original.sourceType || '';\n  \n  const prompt = 'أنت محلل أخبار ضريبية تركية خبير ومتخصص. لديك خبر ضريبي ونص المقال الكامل. مطلوب منك:\\n\\n1. قراءة المقال بعناية واستخراج التفاصيل الدقيقة\\n2. تحديد الأرقام والنسب والمواد القانونية المذكورة\\n3. شرح التأثير العملي على الشركات في تركيا\\n\\nالعنوان: ' + title + '\\nالمصدر: ' + source + ' (' + sourceType + ')\\n\\nنص المقال الكامل:\\n' + articleText + '\\n\\nأجب بـ JSON فقط بهذا الشكل:\\n{\\n  \"isRelevant\": true/false,\\n  \"importance\": \"عالي/متوسط/منخفض\",\\n  \"summaryAr\": \"ملخص تفصيلي بالعربي (3-5 جمل) يتضمن الأرقام والنسب والتفاصيل المحددة من المقال\",\\n  \"summaryTr\": \"ملخص تفصيلي بالتركي (3-5 جمل)\",\\n  \"category\": \"KDV/SGK/Kurumlar/e-Fatura/Muhtasar/Genel\",\\n  \"suggestedTitle\": \"عنوان عربي جذاب ودقيق للنشر على السوشال ميديا\",\\n  \"keyDetails\": \"أهم 3-5 نقاط محددة من الخبر (أرقام، نسب، مواعيد، مواد قانونية)\",\\n  \"impactOnCompanies\": \"كيف يؤثر هذا على الشركات عملياً؟ ماذا يجب أن تفعل؟\",\\n  \"legalReferences\": \"المواد القانونية والتبليغات المذكورة إن وجدت\"\\n}';\n  \n  const body = {\n    contents: [{ parts: [{ text: prompt }] }],\n    generationConfig: { temperature: 0.2 }\n  };\n  \n  return {\n    json: {\n      ...original,\n      articleText: articleText.substring(0, 500),\n      geminiBody: body\n    }\n  };\n});"
+      },
+      "id": "code-extract-and-prepare",
+      "name": "استخراج النص وتحضير Gemini",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [0, 400]
+      "position": [50, 400]
     },
     {
       "parameters": {
@@ -129,12 +148,9 @@
         "specifyBody": "json",
         "jsonBody": "={{ $json.geminiBody }}",
         "options": {
-          "timeout": 30000,
+          "timeout": 60000,
           "batching": {
-            "batch": {
-              "batchSize": 1,
-              "batchInterval": 4000
-            }
+            "batch": { "batchSize": 1, "batchInterval": 10000 }
           }
         }
       },
@@ -142,17 +158,17 @@
       "name": "إرسال لـ Gemini",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [250, 400]
+      "position": [300, 400]
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst originalItems = $('تحضير طلب Gemini').all();\n\nreturn items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  \n  let analysis = {};\n  try {\n    const content = item.json.candidates?.[0]?.content?.parts?.[0]?.text || '{}';\n    const cleaned = content.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    analysis = JSON.parse(cleaned);\n  } catch (e) {\n    analysis = {\n      isRelevant: true,\n      importance: 'متوسط',\n      summaryAr: original.description || '',\n      summaryTr: '',\n      category: 'Genel',\n      suggestedTitle: original.title || ''\n    };\n  }\n  \n  if (!analysis.isRelevant) return null;\n  \n  return {\n    json: {\n      title: original.title || '',\n      suggestedTitle: analysis.suggestedTitle || '',\n      summaryAr: analysis.summaryAr || '',\n      summaryTr: analysis.summaryTr || '',\n      category: analysis.category || 'Genel',\n      importance: analysis.importance || 'متوسط',\n      source: original.source || '',\n      sourceType: original.sourceType || '',\n      sourceUrl: original.link || '',\n      pubDate: original.pubDate || '',\n      collectedAt: original.collectedAt || new Date().toISOString(),\n      approved: '',\n      status: 'جديد'\n    }\n  };\n}).filter(item => item !== null);"
+        "jsCode": "const items = $input.all();\nconst originalItems = $('استخراج النص وتحضير Gemini').all();\n\nreturn items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  \n  let analysis = {};\n  try {\n    const content = item.json.candidates?.[0]?.content?.parts?.[0]?.text || '{}';\n    const cleaned = content.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    analysis = JSON.parse(cleaned);\n  } catch (e) {\n    analysis = {\n      isRelevant: true, importance: 'متوسط',\n      summaryAr: original.description || '', summaryTr: '',\n      category: 'Genel', suggestedTitle: original.title || '',\n      keyDetails: '', impactOnCompanies: '', legalReferences: ''\n    };\n  }\n  \n  if (!analysis.isRelevant) return null;\n  \n  return {\n    json: {\n      title: original.title || '',\n      suggestedTitle: analysis.suggestedTitle || '',\n      summaryAr: analysis.summaryAr || '',\n      summaryTr: analysis.summaryTr || '',\n      keyDetails: analysis.keyDetails || '',\n      impactOnCompanies: analysis.impactOnCompanies || '',\n      legalReferences: analysis.legalReferences || '',\n      category: analysis.category || 'Genel',\n      importance: analysis.importance || 'متوسط',\n      source: original.source || '',\n      sourceType: original.sourceType || '',\n      sourceUrl: original.link || '',\n      pubDate: original.pubDate || '',\n      collectedAt: original.collectedAt || new Date().toISOString(),\n      approved: '',\n      status: 'جديد'\n    }\n  };\n}).filter(item => item !== null);"
       },
       "id": "code-prepare-sheets",
       "name": "تجهيز البيانات للشيت",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [500, 400]
+      "position": [550, 400]
     },
     {
       "parameters": {
@@ -179,7 +195,7 @@
       "name": "كتابة الأخبار في Google Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [750, 400],
+      "position": [800, 400],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "tMsf6bYwBxxWxxVC",
@@ -193,7 +209,7 @@
       "name": "تم الجمع",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [1000, 400]
+      "position": [1050, 400]
     }
   ],
   "connections": {
@@ -216,8 +232,9 @@
     "أخبار - e-Fatura & Kurumlar": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
     "Bloomberg HT": { "main": [[{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]] },
     "تجميع كل المصادر": { "main": [[{ "node": "تنظيف وتصفية الأخبار", "type": "main", "index": 0 }]] },
-    "تنظيف وتصفية الأخبار": { "main": [[{ "node": "تحضير طلب Gemini", "type": "main", "index": 0 }]] },
-    "تحضير طلب Gemini": { "main": [[{ "node": "إرسال لـ Gemini", "type": "main", "index": 0 }]] },
+    "تنظيف وتصفية الأخبار": { "main": [[{ "node": "قراءة المقال الكامل", "type": "main", "index": 0 }]] },
+    "قراءة المقال الكامل": { "main": [[{ "node": "استخراج النص وتحضير Gemini", "type": "main", "index": 0 }]] },
+    "استخراج النص وتحضير Gemini": { "main": [[{ "node": "إرسال لـ Gemini", "type": "main", "index": 0 }]] },
     "إرسال لـ Gemini": { "main": [[{ "node": "تجهيز البيانات للشيت", "type": "main", "index": 0 }]] },
     "تجهيز البيانات للشيت": { "main": [[{ "node": "كتابة الأخبار في Google Sheets", "type": "main", "index": 0 }]] },
     "كتابة الأخبار في Google Sheets": { "main": [[{ "node": "تم الجمع", "type": "main", "index": 0 }]] }
