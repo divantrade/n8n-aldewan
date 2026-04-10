@@ -1,0 +1,263 @@
+{
+  "name": "جمع أخبار الضرائب التركية - Tax News Collector",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "trigger-schedule-news",
+      "name": "جدولة جمع الأخبار - 8 صباحاً",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1200, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=vergi+OR+KDV+OR+vergi+tebli%C4%9Fi&hl=tr&gl=TR&ceid=TR:tr",
+        "options": {}
+      },
+      "id": "rss-google-news-vergi",
+      "name": "Google News - Vergi",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [-900, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=SGK+primi+OR+sosyal+g%C3%BCvenlik&hl=tr&gl=TR&ceid=TR:tr",
+        "options": {}
+      },
+      "id": "rss-google-news-sgk",
+      "name": "Google News - SGK",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [-900, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=e-fatura+OR+e-defter+OR+kurumlar+vergisi&hl=tr&gl=TR&ceid=TR:tr",
+        "options": {}
+      },
+      "id": "rss-google-news-efatura",
+      "name": "Google News - e-Fatura & Kurumlar",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [-900, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=Maliye+Bakanl%C4%B1%C4%9F%C4%B1+OR+Gelir+%C4%B0daresi&hl=tr&gl=TR&ceid=TR:tr",
+        "options": {}
+      },
+      "id": "rss-google-news-maliye",
+      "name": "Google News - Maliye",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [-900, 600]
+    },
+    {
+      "parameters": {
+        "url": "https://www.dunya.com/rss",
+        "options": {}
+      },
+      "id": "rss-dunya",
+      "name": "Dünya Gazetesi",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [-900, 800]
+    },
+    {
+      "parameters": {
+        "url": "https://www.bloomberght.com/rss",
+        "options": {}
+      },
+      "id": "rss-bloomberg",
+      "name": "Bloomberg HT",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [-900, 1000]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "merge-all-feeds",
+      "name": "تجميع كل المصادر",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [-500, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Deduplicate + Filter last 24 hours + Clean data\n// ============================================\n\nconst items = $input.all();\nconst seen = new Set();\nconst now = new Date();\nconst oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);\n\nconst filtered = [];\n\nfor (const item of items) {\n  const d = item.json;\n  \n  // Extract common fields from RSS\n  const title = d.title || d.headline || '';\n  const link = d.link || d.url || d.guid || '';\n  const pubDate = d.pubDate || d.isoDate || d.date || d.published || '';\n  const description = d.contentSnippet || d.content || d.description || d.summary || '';\n  const source = d.creator || d.author || d.source || d['dc:creator'] || 'Unknown';\n  \n  if (!title) continue;\n  \n  // Deduplicate by normalized title\n  const normalizedTitle = title.toLowerCase().trim().replace(/\\s+/g, ' ');\n  if (seen.has(normalizedTitle)) continue;\n  seen.add(normalizedTitle);\n  \n  // Filter: only last 24 hours\n  if (pubDate) {\n    const articleDate = new Date(pubDate);\n    if (articleDate < oneDayAgo) continue;\n  }\n  \n  filtered.push({\n    json: {\n      title: title,\n      description: description.substring(0, 500),\n      link: link,\n      source: source,\n      pubDate: pubDate,\n      collectedAt: now.toISOString()\n    }\n  });\n}\n\n// Sort by date (newest first)\nfiltered.sort((a, b) => {\n  const dateA = new Date(a.json.pubDate || 0);\n  const dateB = new Date(b.json.pubDate || 0);\n  return dateB - dateA;\n});\n\n// Limit to top 20 most recent\nreturn filtered.slice(0, 20);"
+      },
+      "id": "code-dedup-filter",
+      "name": "تنظيف وتصفية الأخبار",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-250, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"temperature\": 0.3,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"أنت محلل أخبار ضريبية متخصص في الضرائب التركية. مهمتك تحليل الأخبار وتقييم أهميتها لشركة Aldewan التي تساعد الشركات في الامتثال الضريبي في تركيا.\\n\\nأجب بـ JSON فقط بالشكل التالي:\\n{\\n  \\\"isRelevant\\\": true/false,\\n  \\\"importance\\\": \\\"عالي\\\" أو \\\"متوسط\\\" أو \\\"منخفض\\\",\\n  \\\"summaryAr\\\": \\\"ملخص بالعربي في 2-3 جمل\\\",\\n  \\\"summaryTr\\\": \\\"ملخص بالتركي في 2-3 جمل\\\",\\n  \\\"category\\\": \\\"KDV\\\" أو \\\"SGK\\\" أو \\\"Kurumlar\\\" أو \\\"e-Fatura\\\" أو \\\"Muhtasar\\\" أو \\\"Genel\\\" أو \\\"Diğer\\\",\\n  \\\"suggestedTitle\\\": \\\"عنوان جذاب بالعربي للنشر\\\"\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('حلل هذا الخبر:\\n\\nالعنوان: ' + $json.title + '\\n\\nالوصف: ' + $json.description + '\\n\\nالمصدر: ' + $json.source) }}\n    }\n  ]\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "ai-analyze-news",
+      "name": "AI تحليل الأهمية والتلخيص",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 400],
+      "credentials": {
+        "openAiApi": {
+          "id": "UgxxU7JRYK5Qpel4",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Parse AI response and prepare for Google Sheets\n// ============================================\n\nconst items = $input.all();\nconst originalItems = $('تنظيف وتصفية الأخبار').all();\n\nreturn items.map((item, index) => {\n  const original = originalItems[index]?.json || {};\n  \n  let analysis = {};\n  try {\n    const content = item.json.choices?.[0]?.message?.content || '{}';\n    analysis = JSON.parse(content);\n  } catch (e) {\n    analysis = {\n      isRelevant: false,\n      importance: 'منخفض',\n      summaryAr: '',\n      summaryTr: '',\n      category: 'Diğer',\n      suggestedTitle: ''\n    };\n  }\n  \n  // Only keep relevant news\n  if (!analysis.isRelevant) return null;\n  \n  return {\n    json: {\n      title: original.title || '',\n      suggestedTitle: analysis.suggestedTitle || '',\n      summaryAr: analysis.summaryAr || '',\n      summaryTr: analysis.summaryTr || '',\n      category: analysis.category || 'Genel',\n      importance: analysis.importance || 'متوسط',\n      source: original.source || '',\n      sourceUrl: original.link || '',\n      pubDate: original.pubDate || '',\n      collectedAt: original.collectedAt || new Date().toISOString(),\n      approved: '',\n      linkedinContent: '',\n      facebookContent: '',\n      instagramContent: '',\n      imagePrompt: '',\n      imageUrl: '',\n      status: 'جديد'\n    }\n  };\n}).filter(item => item !== null);"
+      },
+      "id": "code-prepare-sheets",
+      "name": "تجهيز البيانات للشيت",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $env.TAX_NEWS_SHEET_URL }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "الأخبار - News"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "sheets-write-news",
+      "name": "كتابة الأخبار في Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [500, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "noop-done",
+      "name": "تم الجمع",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [750, 400]
+    }
+  ],
+  "connections": {
+    "جدولة جمع الأخبار - 8 صباحاً": {
+      "main": [
+        [
+          { "node": "Google News - Vergi", "type": "main", "index": 0 },
+          { "node": "Google News - SGK", "type": "main", "index": 0 },
+          { "node": "Google News - e-Fatura & Kurumlar", "type": "main", "index": 0 },
+          { "node": "Google News - Maliye", "type": "main", "index": 0 },
+          { "node": "Dünya Gazetesi", "type": "main", "index": 0 },
+          { "node": "Bloomberg HT", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Google News - Vergi": {
+      "main": [
+        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+      ]
+    },
+    "Google News - SGK": {
+      "main": [
+        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+      ]
+    },
+    "Google News - e-Fatura & Kurumlar": {
+      "main": [
+        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+      ]
+    },
+    "Google News - Maliye": {
+      "main": [
+        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+      ]
+    },
+    "Dünya Gazetesi": {
+      "main": [
+        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+      ]
+    },
+    "Bloomberg HT": {
+      "main": [
+        [{ "node": "تجميع كل المصادر", "type": "main", "index": 0 }]
+      ]
+    },
+    "تجميع كل المصادر": {
+      "main": [
+        [{ "node": "تنظيف وتصفية الأخبار", "type": "main", "index": 0 }]
+      ]
+    },
+    "تنظيف وتصفية الأخبار": {
+      "main": [
+        [{ "node": "AI تحليل الأهمية والتلخيص", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI تحليل الأهمية والتلخيص": {
+      "main": [
+        [{ "node": "تجهيز البيانات للشيت", "type": "main", "index": 0 }]
+      ]
+    },
+    "تجهيز البيانات للشيت": {
+      "main": [
+        [{ "node": "كتابة الأخبار في Google Sheets", "type": "main", "index": 0 }]
+      ]
+    },
+    "كتابة الأخبار في Google Sheets": {
+      "main": [
+        [{ "node": "تم الجمع", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": [
+    { "name": "تسويق", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" },
+    { "name": "AI Content", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" }
+  ]
+}

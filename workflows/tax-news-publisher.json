@@ -1,0 +1,465 @@
+{
+  "name": "نشر أخبار الضرائب - Tax News Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 11,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "trigger-publish",
+      "name": "جدولة النشر - 11 صباحاً",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1400, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $env.TAX_NEWS_SHEET_URL }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "الأخبار - News"
+        },
+        "options": {}
+      },
+      "id": "sheets-read-approved",
+      "name": "قراءة الأخبار المعتمدة",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-1100, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": "نعم",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "id": "filter-approved"
+            },
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "جديد",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "id": "filter-status"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-approved",
+      "name": "تصفية المعتمد فقط",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [-850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"temperature\": 0.7,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"أنت كاتب محتوى محترف متخصص في الضرائب التركية. تكتب لشركة Aldewan (الديوان) المتخصصة في خدمات الامتثال الضريبي في تركيا.\\n\\nاكتب 3 نسخ مختلفة من المنشور:\\n\\n1. LinkedIn: تحليل احترافي مفصل (200-300 كلمة)، نبرة خبيرة، نصائح عملية، سؤال للتفاعل، 3-5 هاشتاقات\\n2. Facebook: شرح مبسط وودود (100-150 كلمة)، لغة سهلة، دعوة للتواصل مع الشركة\\n3. Instagram: نص قصير جذاب (50-80 كلمة)، إيموجي مناسب، 10-15 هاشتاق\\n\\nأيضاً اكتب prompt بالإنجليزية لتوليد صورة بـ Gemini:\\n- صورة احترافية مناسبة للخبر\\n- أسلوب: modern corporate, dark blue and gold theme\\n- يتضمن نص عربي واضح (العنوان المقترح)\\n- مقاس مربع 1080x1080\\n\\nأجب بـ JSON:\\n{\\n  \\\"linkedin\\\": \\\"...\\\",\\n  \\\"facebook\\\": \\\"...\\\",\\n  \\\"instagram\\\": \\\"...\\\",\\n  \\\"imagePrompt\\\": \\\"...\\\"\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('اكتب منشورات عن هذا الخبر:\\n\\nالعنوان: ' + ($json.suggestedTitle || $json.title) + '\\n\\nالملخص: ' + $json.summaryAr + '\\n\\nالتصنيف: ' + $json.category + '\\n\\nالمصدر: ' + $json.source) }}\n    }\n  ]\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "ai-generate-content",
+      "name": "AI توليد محتوى لكل منصة",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-600, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "UgxxU7JRYK5Qpel4",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Parse AI content + prepare Gemini image request\n// ============================================\n\nconst items = $input.all();\nconst originals = $('تصفية المعتمد فقط').all();\n\nreturn items.map((item, index) => {\n  const original = originals[index]?.json || {};\n  \n  let content = {};\n  try {\n    const text = item.json.choices?.[0]?.message?.content || '{}';\n    content = JSON.parse(text);\n  } catch (e) {\n    content = {\n      linkedin: '',\n      facebook: '',\n      instagram: '',\n      imagePrompt: ''\n    };\n  }\n  \n  return {\n    json: {\n      ...original,\n      linkedinContent: content.linkedin || '',\n      facebookContent: content.facebook || '',\n      instagramContent: content.instagram || '',\n      imagePrompt: content.imagePrompt || ''\n    }\n  };\n});"
+      },
+      "id": "code-parse-content",
+      "name": "تجهيز المحتوى",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-350, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": {{ JSON.stringify($json.imagePrompt + '\\n\\nIMPORTANT: Generate a 1080x1080 professional image. The image should have a dark blue (#1a365d) and gold (#d4a843) color scheme. Include the Arabic text clearly and legibly. Style: modern corporate infographic for social media.') }}\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"responseModalities\": [\"IMAGE\", \"TEXT\"],\n    \"responseMimeType\": \"image/png\"\n  }\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "gemini-generate-image",
+      "name": "Gemini توليد الصورة",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Extract image from Gemini response\n// ============================================\n\nconst items = $input.all();\nconst contentItems = $('تجهيز المحتوى').all();\n\nreturn items.map((item, index) => {\n  const content = contentItems[index]?.json || {};\n  const response = item.json;\n  \n  // Extract base64 image from Gemini response\n  let imageBase64 = '';\n  let imageMimeType = 'image/png';\n  \n  try {\n    const parts = response.candidates?.[0]?.content?.parts || [];\n    for (const part of parts) {\n      if (part.inlineData) {\n        imageBase64 = part.inlineData.data;\n        imageMimeType = part.inlineData.mimeType || 'image/png';\n        break;\n      }\n    }\n  } catch (e) {\n    // Image generation failed\n  }\n  \n  return {\n    json: {\n      ...content,\n      imageBase64: imageBase64,\n      imageMimeType: imageMimeType,\n      hasImage: !!imageBase64\n    }\n  };\n});"
+      },
+      "id": "code-extract-image",
+      "name": "استخراج الصورة",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [150, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"تحقق من هذه الصورة المصممة لمنشور على السوشال ميديا. أجب بـ JSON فقط:\\n{\\n  \\\"arabicTextClear\\\": true/false (هل النص العربي واضح ومقروء؟),\\n  \\\"designQuality\\\": \\\"ممتاز\\\" أو \\\"جيد\\\" أو \\\"ضعيف\\\",\\n  \\\"approved\\\": true/false,\\n  \\\"issues\\\": \\\"وصف المشاكل إن وجدت\\\"\\n}\"\n        },\n        {\n          \"inlineData\": {\n            \"mimeType\": \"{{ $json.imageMimeType }}\",\n            \"data\": \"{{ $json.imageBase64 }}\"\n          }\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "gemini-verify-image",
+      "name": "Gemini التحقق من الصورة",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Check if image passed validation\n// ============================================\n\nconst items = $input.all();\nconst imageItems = $('استخراج الصورة').all();\n\nreturn items.map((item, index) => {\n  const imageData = imageItems[index]?.json || {};\n  const response = item.json;\n  \n  let verification = { approved: false };\n  try {\n    const content = response.candidates?.[0]?.content?.parts?.[0]?.text || '{}';\n    verification = JSON.parse(content);\n  } catch (e) {\n    // If verification fails, approve by default\n    verification = { approved: true, arabicTextClear: true, designQuality: 'جيد' };\n  }\n  \n  return {\n    json: {\n      ...imageData,\n      imageApproved: verification.approved !== false,\n      imageQuality: verification.designQuality || '',\n      imageIssues: verification.issues || ''\n    }\n  };\n});"
+      },
+      "id": "code-check-verification",
+      "name": "فحص نتيجة التحقق",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.imageApproved }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "id": "check-image-approved"
+            },
+            {
+              "leftValue": "={{ $json.hasImage }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "id": "check-has-image"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-image-approved",
+      "name": "الصورة مقبولة؟",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Restli-Protocol-Version", "value": "2.0.0" },
+            { "name": "LinkedIn-Version", "value": "202402" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"author\": \"urn:li:organization:{{ $env.LINKEDIN_ORG_ID }}\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": {{ JSON.stringify($json.linkedinContent) }}\n      },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "publish-linkedin",
+      "name": "نشر على LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "LinkedIn Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v19.0/{{ $env.FACEBOOK_PAGE_ID }}/photos",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": {{ JSON.stringify($json.facebookContent) }},\n  \"url\": \"data:{{ $json.imageMimeType }};base64,{{ $json.imageBase64 }}\",\n  \"access_token\": \"{{ $env.FACEBOOK_PAGE_TOKEN }}\"\n}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "publish-facebook",
+      "name": "نشر على Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v19.0/{{ $env.INSTAGRAM_ACCOUNT_ID }}/media",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"caption\": {{ JSON.stringify($json.instagramContent) }},\n  \"image_url\": \"data:{{ $json.imageMimeType }};base64,{{ $json.imageBase64 }}\",\n  \"access_token\": \"{{ $env.FACEBOOK_PAGE_TOKEN }}\"\n}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "publish-instagram",
+      "name": "نشر على Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Aggregate publishing results\n// ============================================\n\nconst linkedinResults = $('نشر على LinkedIn').all();\nconst facebookResults = $('نشر على Facebook').all();\nconst instagramResults = $('نشر على Instagram').all();\nconst contentItems = $('فحص نتيجة التحقق').all();\n\nreturn contentItems.map((item, index) => {\n  const linkedin = linkedinResults[index]?.json || {};\n  const facebook = facebookResults[index]?.json || {};\n  const instagram = instagramResults[index]?.json || {};\n  \n  const linkedinOk = linkedin.id || linkedin.activity;\n  const facebookOk = facebook.id || facebook.post_id;\n  const instagramOk = instagram.id;\n  \n  return {\n    json: {\n      title: item.json.suggestedTitle || item.json.title,\n      linkedinStatus: linkedinOk ? 'تم ✅' : 'فشل ❌',\n      facebookStatus: facebookOk ? 'تم ✅' : 'فشل ❌',\n      instagramStatus: instagramOk ? 'تم ✅' : 'فشل ❌',\n      publishedAt: new Date().toISOString(),\n      status: 'تم النشر'\n    }\n  };\n});"
+      },
+      "id": "code-aggregate-results",
+      "name": "تجميع نتائج النشر",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $env.TAX_NEWS_SHEET_URL }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "الأخبار - News"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.status }}",
+            "linkedinStatus": "={{ $json.linkedinStatus }}",
+            "facebookStatus": "={{ $json.facebookStatus }}",
+            "instagramStatus": "={{ $json.instagramStatus }}",
+            "publishedAt": "={{ $json.publishedAt }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "sheets-update-status",
+      "name": "تحديث الحالة في Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1750, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Image rejected - log for manual review\nconst items = $input.all();\nreturn items.map(item => ({\n  json: {\n    title: item.json.suggestedTitle || item.json.title,\n    status: 'الصورة مرفوضة - تحتاج إعادة',\n    issues: item.json.imageIssues || 'الصورة غير مقبولة',\n    publishedAt: new Date().toISOString()\n  }\n}));"
+      },
+      "id": "code-image-rejected",
+      "name": "الصورة مرفوضة",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 700]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $env.TAX_NEWS_SHEET_URL }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "الأخبار - News"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.status }}",
+            "imageIssues": "={{ $json.issues }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "sheets-update-rejected",
+      "name": "تحديث حالة الرفض",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1500, 700],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMsf6bYwBxxWxxVC",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "جدولة النشر - 11 صباحاً": {
+      "main": [
+        [{ "node": "قراءة الأخبار المعتمدة", "type": "main", "index": 0 }]
+      ]
+    },
+    "قراءة الأخبار المعتمدة": {
+      "main": [
+        [{ "node": "تصفية المعتمد فقط", "type": "main", "index": 0 }]
+      ]
+    },
+    "تصفية المعتمد فقط": {
+      "main": [
+        [{ "node": "AI توليد محتوى لكل منصة", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI توليد محتوى لكل منصة": {
+      "main": [
+        [{ "node": "تجهيز المحتوى", "type": "main", "index": 0 }]
+      ]
+    },
+    "تجهيز المحتوى": {
+      "main": [
+        [{ "node": "Gemini توليد الصورة", "type": "main", "index": 0 }]
+      ]
+    },
+    "Gemini توليد الصورة": {
+      "main": [
+        [{ "node": "استخراج الصورة", "type": "main", "index": 0 }]
+      ]
+    },
+    "استخراج الصورة": {
+      "main": [
+        [{ "node": "Gemini التحقق من الصورة", "type": "main", "index": 0 }]
+      ]
+    },
+    "Gemini التحقق من الصورة": {
+      "main": [
+        [{ "node": "فحص نتيجة التحقق", "type": "main", "index": 0 }]
+      ]
+    },
+    "فحص نتيجة التحقق": {
+      "main": [
+        [{ "node": "الصورة مقبولة؟", "type": "main", "index": 0 }]
+      ]
+    },
+    "الصورة مقبولة؟": {
+      "main": [
+        [
+          { "node": "نشر على LinkedIn", "type": "main", "index": 0 },
+          { "node": "نشر على Facebook", "type": "main", "index": 0 },
+          { "node": "نشر على Instagram", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "الصورة مرفوضة", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "نشر على LinkedIn": {
+      "main": [
+        [{ "node": "تجميع نتائج النشر", "type": "main", "index": 0 }]
+      ]
+    },
+    "نشر على Facebook": {
+      "main": [
+        [{ "node": "تجميع نتائج النشر", "type": "main", "index": 0 }]
+      ]
+    },
+    "نشر على Instagram": {
+      "main": [
+        [{ "node": "تجميع نتائج النشر", "type": "main", "index": 0 }]
+      ]
+    },
+    "تجميع نتائج النشر": {
+      "main": [
+        [{ "node": "تحديث الحالة في Google Sheets", "type": "main", "index": 0 }]
+      ]
+    },
+    "الصورة مرفوضة": {
+      "main": [
+        [{ "node": "تحديث حالة الرفض", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": [
+    { "name": "تسويق", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" },
+    { "name": "AI Content", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" },
+    { "name": "LinkedIn", "createdAt": "2026-03-14T00:00:00.000Z", "updatedAt": "2026-03-14T00:00:00.000Z" }
+  ]
+}
