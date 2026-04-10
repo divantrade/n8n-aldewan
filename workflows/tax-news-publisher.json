@@ -130,7 +130,7 @@
         "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=CHANGE_ME_GEMINI_API_KEY",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": {{ JSON.stringify($json.imagePrompt + '\\n\\nIMPORTANT: Generate a 1080x1080 professional image. The image should have a dark blue (#1a365d) and gold (#d4a843) color scheme. Include the Arabic text clearly and legibly. Style: modern corporate infographic for social media.') }}\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"responseModalities\": [\"IMAGE\", \"TEXT\"],\n    \"responseMimeType\": \"image/png\"\n  }\n}",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": {{ JSON.stringify($json.imagePrompt + '\\n\\nIMPORTANT: Generate a 1080x1080 professional image. The image should have a dark blue (#1a365d) and gold (#d4a843) color scheme. Include the Arabic text clearly and legibly. Style: modern corporate infographic for social media.') }}\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"responseModalities\": [\"IMAGE\", \"TEXT\"]\n  }\n}",
         "options": {
           "timeout": 120000
         }
