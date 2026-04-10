@@ -16,7 +16,10 @@
       "name": "جدولة النشر - Publishing Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-800, 300]
+      "position": [
+        -800,
+        300
+      ]
     },
     {
       "parameters": {
@@ -40,7 +43,10 @@
       "name": "قراءة المحتوى من Google Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [-560, 300],
+      "position": [
+        -560,
+        300
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "",
@@ -85,7 +91,10 @@
       "name": "تصفية المحتوى اليومي",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
-      "position": [-320, 300]
+      "position": [
+        -320,
+        300
+      ]
     },
     {
       "parameters": {
@@ -95,7 +104,10 @@
       "name": "تجهيز المنشورات لكل صفحة",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-80, 300]
+      "position": [
+        -80,
+        300
+      ]
     },
     {
       "parameters": {
@@ -125,7 +137,10 @@
       "name": "هل يوجد صورة؟",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [160, 300]
+      "position": [
+        160,
+        300
+      ]
     },
     {
       "parameters": {
@@ -157,7 +172,10 @@
       "name": "نشر نص فقط على LinkedIn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [420, 420],
+      "position": [
+        420,
+        420
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "",
@@ -195,7 +213,10 @@
       "name": "نشر مع صورة على LinkedIn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [420, 180],
+      "position": [
+        420,
+        180
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "",
@@ -211,7 +232,10 @@
       "name": "تجميع النتائج",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [700, 300]
+      "position": [
+        700,
+        300
+      ]
     },
     {
       "parameters": {
@@ -240,7 +264,10 @@
       "name": "تحديث الحالة في Google Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [940, 300],
+      "position": [
+        940,
+        300
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "",
@@ -256,7 +283,10 @@
       "name": "No Operation",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [940, 500]
+      "position": [
+        940,
+        500
+      ]
     },
     {
       "parameters": {
@@ -273,7 +303,10 @@
       "name": "جدولة توليد المحتوى - Content Generation Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-800, -200]
+      "position": [
+        -800,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -297,7 +330,10 @@
       "name": "قراءة المواضيع من Google Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [-560, -200],
+      "position": [
+        -560,
+        -200
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "",
@@ -333,7 +369,10 @@
       "name": "تصفية المواضيع التي تحتاج محتوى",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
-      "position": [-320, -200]
+      "position": [
+        -320,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -343,7 +382,10 @@
       "name": "تجهيز البرومبت",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-80, -200]
+      "position": [
+        -80,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -371,7 +413,10 @@
       "name": "توليد المحتوى بالذكاء الاصطناعي",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [160, -200],
+      "position": [
+        160,
+        -200
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "",
@@ -387,7 +432,10 @@
       "name": "استخراج المحتوى المولّد",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [420, -200]
+      "position": [
+        420,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -418,7 +466,10 @@
       "name": "حفظ المسودة في Google Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [700, -200],
+      "position": [
+        700,
+        -200
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "",
@@ -618,5 +669,6 @@
       "createdAt": "2026-03-14T00:00:00.000Z",
       "updatedAt": "2026-03-14T00:00:00.000Z"
     }
-  ]
+  ],
+  "id": "EQSZCR4fp3T3BK7y"
 }
