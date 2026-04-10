@@ -24,7 +24,7 @@
         "documentId": {
           "__rl": true,
           "mode": "url",
-          "value": "={{ $env.TAX_NEWS_SHEET_URL }}"
+          "value": "CHANGE_ME_GOOGLE_SHEET_URL"
         },
         "sheetName": {
           "__rl": true,
@@ -88,31 +88,23 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=CHANGE_ME_GEMINI_API_KEY",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"temperature\": 0.7,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"أنت كاتب محتوى محترف متخصص في الضرائب التركية. تكتب لشركة Aldewan (الديوان) المتخصصة في خدمات الامتثال الضريبي في تركيا.\\n\\nاكتب 3 نسخ مختلفة من المنشور:\\n\\n1. LinkedIn: تحليل احترافي مفصل (200-300 كلمة)، نبرة خبيرة، نصائح عملية، سؤال للتفاعل، 3-5 هاشتاقات\\n2. Facebook: شرح مبسط وودود (100-150 كلمة)، لغة سهلة، دعوة للتواصل مع الشركة\\n3. Instagram: نص قصير جذاب (50-80 كلمة)، إيموجي مناسب، 10-15 هاشتاق\\n\\nأيضاً اكتب prompt بالإنجليزية لتوليد صورة بـ Gemini:\\n- صورة احترافية مناسبة للخبر\\n- أسلوب: modern corporate, dark blue and gold theme\\n- يتضمن نص عربي واضح (العنوان المقترح)\\n- مقاس مربع 1080x1080\\n\\nأجب بـ JSON:\\n{\\n  \\\"linkedin\\\": \\\"...\\\",\\n  \\\"facebook\\\": \\\"...\\\",\\n  \\\"instagram\\\": \\\"...\\\",\\n  \\\"imagePrompt\\\": \\\"...\\\"\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('اكتب منشورات عن هذا الخبر:\\n\\nالعنوان: ' + ($json.suggestedTitle || $json.title) + '\\n\\nالملخص: ' + $json.summaryAr + '\\n\\nالتصنيف: ' + $json.category + '\\n\\nالمصدر: ' + $json.source) }}\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": {{ JSON.stringify('أنت كاتب محتوى محترف متخصص في الضرائب التركية. تكتب لشركة Aldewan (الديوان) المتخصصة في خدمات الامتثال الضريبي في تركيا.\\n\\nاكتب منشورات عن هذا الخبر:\\nالعنوان: ' + ($json.suggestedTitle || $json.title) + '\\nالملخص: ' + $json.summaryAr + '\\nالتصنيف: ' + $json.category + '\\nالمصدر: ' + $json.source + '\\n\\nاكتب 3 نسخ مختلفة:\\n1. LinkedIn: تحليل احترافي مفصل (200-300 كلمة)، نبرة خبيرة، نصائح عملية، سؤال للتفاعل، 3-5 هاشتاقات\\n2. Facebook: شرح مبسط وودود (100-150 كلمة)، لغة سهلة، دعوة للتواصل\\n3. Instagram: نص قصير جذاب (50-80 كلمة)، إيموجي، 10-15 هاشتاق\\n\\nأيضاً اكتب prompt بالإنجليزية لتوليد صورة بـ Gemini (أسلوب: modern corporate, dark blue #1a365d and gold #d4a843, مع نص عربي واضح, 1080x1080)\\n\\nأجب بـ JSON:\\n{\"linkedin\": \"...\", \"facebook\": \"...\", \"instagram\": \"...\", \"imagePrompt\": \"...\"}') }}\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
         "options": {
           "timeout": 60000
         }
       },
       "id": "ai-generate-content",
-      "name": "AI توليد محتوى لكل منصة",
+      "name": "Gemini توليد محتوى لكل منصة",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-600, 300],
-      "credentials": {
-        "openAiApi": {
-          "id": "UgxxU7JRYK5Qpel4",
-          "name": "OpenAi account"
-        }
-      }
+      "position": [-600, 300]
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Parse AI content + prepare Gemini image request\n// ============================================\n\nconst items = $input.all();\nconst originals = $('تصفية المعتمد فقط').all();\n\nreturn items.map((item, index) => {\n  const original = originals[index]?.json || {};\n  \n  let content = {};\n  try {\n    const text = item.json.choices?.[0]?.message?.content || '{}';\n    content = JSON.parse(text);\n  } catch (e) {\n    content = {\n      linkedin: '',\n      facebook: '',\n      instagram: '',\n      imagePrompt: ''\n    };\n  }\n  \n  return {\n    json: {\n      ...original,\n      linkedinContent: content.linkedin || '',\n      facebookContent: content.facebook || '',\n      instagramContent: content.instagram || '',\n      imagePrompt: content.imagePrompt || ''\n    }\n  };\n});"
+        "jsCode": "// ============================================\n// Parse AI content + prepare Gemini image request\n// ============================================\n\nconst items = $input.all();\nconst originals = $('تصفية المعتمد فقط').all();\n\nreturn items.map((item, index) => {\n  const original = originals[index]?.json || {};\n  \n  let content = {};\n  try {\n    const text = item.json.candidates?.[0]?.content?.parts?.[0]?.text || item.json.choices?.[0]?.message?.content || '{}';\n    content = JSON.parse(text);\n  } catch (e) {\n    content = {\n      linkedin: '',\n      facebook: '',\n      instagram: '',\n      imagePrompt: ''\n    };\n  }\n  \n  return {\n    json: {\n      ...original,\n      linkedinContent: content.linkedin || '',\n      facebookContent: content.facebook || '',\n      instagramContent: content.instagram || '',\n      imagePrompt: content.imagePrompt || ''\n    }\n  };\n});"
       },
       "id": "code-parse-content",
       "name": "تجهيز المحتوى",
@@ -123,7 +115,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=CHANGE_ME_GEMINI_API_KEY",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": {{ JSON.stringify($json.imagePrompt + '\\n\\nIMPORTANT: Generate a 1080x1080 professional image. The image should have a dark blue (#1a365d) and gold (#d4a843) color scheme. Include the Arabic text clearly and legibly. Style: modern corporate infographic for social media.') }}\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"responseModalities\": [\"IMAGE\", \"TEXT\"],\n    \"responseMimeType\": \"image/png\"\n  }\n}",
@@ -150,7 +142,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=CHANGE_ME_GEMINI_API_KEY",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"تحقق من هذه الصورة المصممة لمنشور على السوشال ميديا. أجب بـ JSON فقط:\\n{\\n  \\\"arabicTextClear\\\": true/false (هل النص العربي واضح ومقروء؟),\\n  \\\"designQuality\\\": \\\"ممتاز\\\" أو \\\"جيد\\\" أو \\\"ضعيف\\\",\\n  \\\"approved\\\": true/false,\\n  \\\"issues\\\": \\\"وصف المشاكل إن وجدت\\\"\\n}\"\n        },\n        {\n          \"inlineData\": {\n            \"mimeType\": \"{{ $json.imageMimeType }}\",\n            \"data\": \"{{ $json.imageBase64 }}\"\n          }\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\"\n  }\n}",
@@ -289,7 +281,7 @@
         "documentId": {
           "__rl": true,
           "mode": "url",
-          "value": "={{ $env.TAX_NEWS_SHEET_URL }}"
+          "value": "CHANGE_ME_GOOGLE_SHEET_URL"
         },
         "sheetName": {
           "__rl": true,
@@ -337,7 +329,7 @@
         "documentId": {
           "__rl": true,
           "mode": "url",
-          "value": "={{ $env.TAX_NEWS_SHEET_URL }}"
+          "value": "CHANGE_ME_GOOGLE_SHEET_URL"
         },
         "sheetName": {
           "__rl": true,
