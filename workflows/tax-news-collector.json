@@ -92,7 +92,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst seen = new Set();\nconst now = new Date();\nconst sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst filtered = [];\n\nfor (const item of items) {\n  const d = item.json;\n  const title = d.title || d.headline || '';\n  const link = d.link || d.url || d.guid || '';\n  const pubDate = d.pubDate || d.isoDate || d.date || d.published || '';\n  const description = d.contentSnippet || d.content || d.description || d.summary || '';\n  const source = d.creator || d.author || d.source || d['dc:creator'] || 'Unknown';\n  \n  if (!title) continue;\n  \n  const normalizedTitle = title.toLowerCase().trim().replace(/\\s+/g, ' ');\n  if (seen.has(normalizedTitle)) continue;\n  seen.add(normalizedTitle);\n  \n  if (pubDate) {\n    const articleDate = new Date(pubDate);\n    if (!isNaN(articleDate.getTime()) && articleDate < sevenDaysAgo) continue;\n  }\n  \n  filtered.push({\n    json: {\n      title: title,\n      description: description.substring(0, 500),\n      link: link,\n      source: source,\n      pubDate: pubDate,\n      collectedAt: now.toISOString()\n    }\n  });\n}\n\nfiltered.sort((a, b) => new Date(b.json.pubDate || 0) - new Date(a.json.pubDate || 0));\nconst result = filtered.slice(0, 20);\n\nif (result.length === 0) {\n  return [{ json: { title: 'لا توجد أخبار جديدة', description: '', link: '', source: '', pubDate: '', collectedAt: now.toISOString(), noNews: true } }];\n}\nreturn result;"
+        "jsCode": "const items = $input.all();\nconst seen = new Set();\nconst now = new Date();\nconst sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst filtered = [];\n\nfor (const item of items) {\n  const d = item.json;\n  const title = d.title || d.headline || '';\n  const link = d.link || d.url || d.guid || '';\n  const pubDate = d.pubDate || d.isoDate || d.date || d.published || '';\n  const description = d.contentSnippet || d.content || d.description || d.summary || '';\n  const source = d.creator || d.author || d.source || d['dc:creator'] || 'Unknown';\n  \n  if (!title) continue;\n  \n  const normalizedTitle = title.toLowerCase().trim().replace(/\\s+/g, ' ');\n  if (seen.has(normalizedTitle)) continue;\n  seen.add(normalizedTitle);\n  \n  if (pubDate) {\n    const articleDate = new Date(pubDate);\n    if (!isNaN(articleDate.getTime()) && articleDate < sevenDaysAgo) continue;\n  }\n  \n  filtered.push({\n    json: {\n      title: title,\n      description: description.substring(0, 500),\n      link: link,\n      source: source,\n      pubDate: pubDate,\n      collectedAt: now.toISOString()\n    }\n  });\n}\n\nfiltered.sort((a, b) => new Date(b.json.pubDate || 0) - new Date(a.json.pubDate || 0));\nconst result = filtered.slice(0, 10);\n\nif (result.length === 0) {\n  return [{ json: { title: 'لا توجد أخبار جديدة', description: '', link: '', source: '', pubDate: '', collectedAt: now.toISOString(), noNews: true } }];\n}\nreturn result;"
       },
       "id": "code-dedup-filter",
       "name": "تنظيف وتصفية الأخبار",
@@ -118,7 +118,13 @@
         "specifyBody": "json",
         "jsonBody": "={{ $json.geminiBody }}",
         "options": {
-          "timeout": 30000
+          "timeout": 30000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 3000
+            }
+          }
         }
       },
       "id": "http-gemini-analyze",
